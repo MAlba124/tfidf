@@ -27,8 +27,7 @@ uint64_t tokenizer_add(struct tokenizer *self, char *dat) {
   return token;
 }
 
-uint64_t tokenizer_get(struct tokenizer *self, char *dat) {
+uint64_t *tokenizer_get(struct tokenizer *self, char *dat) {
   void *token = hash_map_get(&self->map, dat);
-  assert(token);
-  return *(uint64_t *)token;
+  return (uint64_t *)token;
 }

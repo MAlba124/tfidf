@@ -1,5 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -pipe -ggdb -std=c99
+# CFLAGS = -Wall -Wextra -Werror -pipe -O3 -march=native -std=c99
+CLINKFLAGS = -lm -lreadline
 
 OBJS = hash_map.o mem.o tokenizer.o skvs.o arraylist.o
 
@@ -10,16 +12,16 @@ default:
 	@exit 1
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ $(CLINKFLAGS)
 
 tfidf: $(OBJS) main.c
-	$(CC) $(CFLAGS) $(OBJS) -o tfidf main.c
+	$(CC) $(CFLAGS) $(OBJS) -o tfidf main.c $(CLINKFLAGS)
 
 .PHONY: build
 build: tfidf
 
 test_map: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o test_map test_map.c
+	$(CC) $(CFLAGS) $(OBJS) -o test_map test_map.c $(CLINKFLAGS)
 	./test_map
 
 .PHONY: clean
