@@ -5,7 +5,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "map.h"
+#include "hash_map.h"
 
 uint64_t hash(const void *key) {
   const char *str = key;

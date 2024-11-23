@@ -1,16 +1,18 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include "map.h"
+#include "hash_map.h"
 #include "mem.h"
 
-static void hash_map_insert_no_copy(struct hash_map *self, void *key, void *value);
+static void hash_map_insert_no_copy(struct hash_map *self, void *key,
+                                    void *value);
 
 struct linked_list_node *linked_list_new(char *key, char *value) {
-  struct linked_list_node *node = malloc_checked(sizeof(struct linked_list_node));
+  struct linked_list_node *node =
+      malloc_checked(sizeof(struct linked_list_node));
   node->key = key;
   node->value = value;
   node->next = NULL;
@@ -37,7 +39,7 @@ void linked_list_shallow_free(struct linked_list_node *root) {
     return;
   }
 
-  linked_list_free(root->next);
+  linked_list_shallow_free(root->next);
   free(root);
 }
 
@@ -86,23 +88,21 @@ static void hash_map_rehash(struct hash_map *self, size_t increase) {
 struct hash_map
 hash_map_new_with_cap(size_t cap, uint64_t (*hash)(const void *key),
                       bool (*compare)(const void *lhs, const void *rhs)) {
-  struct hash_map map = {
-    .hash = hash,
-    .compare = compare
-  };
+  struct hash_map map = {.hash = hash, .compare = compare};
   map.buckets = new_buckets(cap);
   map.n_buckets = cap;
   map.entries = 0;
   return map;
 }
 
-struct hash_map hash_map_new(
-  uint64_t (*hash)(const void * value),
-  bool (*compare)(const void *lhs, const void *rhs)) {
+struct hash_map hash_map_new(uint64_t (*hash)(const void *value),
+                             bool (*compare)(const void *lhs,
+                                             const void *rhs)) {
   return hash_map_new_with_cap(HASH_MAP_DEFAULT_BUCKET_COUNT, hash, compare);
 }
 
-static void hash_map_insert_no_copy(struct hash_map *self, void *key, void *value) {
+static void hash_map_insert_no_copy(struct hash_map *self, void *key,
+                                    void *value) {
   if (hash_map_contains(self, key))
     return;
 
@@ -132,7 +132,8 @@ static void hash_map_insert_no_copy(struct hash_map *self, void *key, void *valu
   }
 }
 
-void hash_map_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size) {
+void hash_map_insert(struct hash_map *self, void *key, void *value,
+                     size_t key_size, size_t value_size) {
   if (hash_map_contains(self, key))
     return;
 
@@ -174,7 +175,6 @@ void *hash_map_get(struct hash_map *self, void *key) {
   struct hash_map_bucket bucket = self->buckets[idx];
   struct linked_list_node *node = bucket.root;
   while (node != NULL) {
-    /* struct key_value_pair *kv_pair = (struct key_value_pair *)node->val; */
     if (self->compare(key, (void *)node->key))
       return (void *)node->value;
     node = node->next;
@@ -189,4 +189,25 @@ bool hash_map_contains(struct hash_map *self, void *key) {
 
 void hash_map_free(struct hash_map *self) {
   free_buckets(self->buckets, self->n_buckets);
+}
+
+uint64_t hash_map_hash_char_star(const void *key) {
+  const char *str = key;
+  uint64_t sum = 0;
+  for (size_t i = 0; i < strlen(key); i++) {
+    sum += str[i];
+  }
+  return sum;
+}
+
+bool hash_map_compare_char_star(const void *vlhs, const void *vrhs) {
+  const char *lhs = vlhs;
+  const char *rhs = vrhs;
+  const size_t lhs_len = strlen(lhs);
+  const size_t rhs_len = strlen(rhs);
+
+  if (lhs_len != rhs_len)
+    return false;
+
+  return strcmp(lhs, rhs) == 0;
 }
