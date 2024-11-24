@@ -166,8 +166,10 @@ int main() {
     struct search_result *top_10 =
         malloc_checked(sizeof(struct search_result) * 10);
     for (size_t i = 0; i < 10; i++) {
-      top_10[i].score = 0;
+      top_10[i].score = 0.0;
     }
+
+    bool found_matching = false;
 
     for (size_t i = 0; i < corpus.size; i++) {
       struct array_list_pair *doc = &corpus.data[i];
@@ -175,8 +177,10 @@ int main() {
       for (size_t j = 0; j < n_tokens; j++) {
         void *tf = hash_map_get(&doc->map, &tokens[j]);
         void *idfa = hash_map_get(&idf, &tokens[j]);
-        if (tf != NULL && tf != NULL)
+        if (tf != NULL && idfa != NULL) {
           score += *(float *)tf * *(float *)idfa;
+          found_matching = true;
+        }
       }
       size_t lowest_idx = 0;
       for (size_t j = 1; j < 10; j++)
@@ -189,6 +193,11 @@ int main() {
         };
         memcpy(&top_10[lowest_idx], &da_result, sizeof(struct search_result));
       }
+    }
+
+    if (!found_matching) {
+      printf("No results\n");
+      goto clean;
     }
 
     for (size_t i = 0; i < 10; i++) {
