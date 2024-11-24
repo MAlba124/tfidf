@@ -130,6 +130,8 @@ int main() {
     }
   }
 
+  array_list_shrink_to_fit(&corpus);
+
   while (true) {
     char *query = readline("query > ");
     if (query == NULL)

@@ -20,27 +20,23 @@ static inline struct linked_list_node *linked_list_new(char *key, char *value) {
 }
 
 static void linked_list_free(struct linked_list_node *root) {
-  if (root->next == NULL) {
-    free(root->key);
-    free(root->value);
-    free(root);
-    return;
+  struct linked_list_node *nod;
+  while (root != NULL) {
+    nod = root;
+    root = root->next;
+    free(nod->key);
+    free(nod->value);
+    free(nod);
   }
-
-  linked_list_free(root->next);
-  free(root->key);
-  free(root->value);
-  free(root);
 }
 
 static void linked_list_shallow_free(struct linked_list_node *root) {
-  if (root->next == NULL) {
-    free(root);
-    return;
+  struct linked_list_node *nod;
+  while (root != NULL) {
+    nod = root;
+    root = root->next;
+    free(nod);
   }
-
-  linked_list_shallow_free(root->next);
-  free(root);
 }
 
 static inline struct hash_map_bucket *new_buckets(size_t n) {

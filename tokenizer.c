@@ -6,7 +6,7 @@
 
 struct tokenizer tokenizer_new() {
   struct tokenizer t = {
-    .map = hash_map_new(hash_map_hash_char_star, hash_map_compare_char_star),
+    .map = hash_map_new_with_cap(1024*2, hash_map_hash_char_star, hash_map_compare_char_star),
     .counter = 0,
   };
   return t;

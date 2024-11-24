@@ -27,12 +27,15 @@ void array_list_free(struct array_list *self) {
 
 void array_list_push(struct array_list *self, struct array_list_pair *element) {
   if (self->size >= self->cap) {
-    self->data = realloc_checked(
-        self->data, sizeof(struct array_list_pair) * self->cap +
-                        sizeof(struct array_list_pair) * ARRAYLIST_EXTEND_WITH);
+    self->data = realloc_checked(self->data, sizeof(struct array_list_pair) * self->cap * 2);
     self->cap += ARRAYLIST_EXTEND_WITH;
   }
 
   memcpy(&self->data[self->size], element, sizeof(struct array_list_pair));
   self->size++;
+}
+
+void array_list_shrink_to_fit(struct array_list *self) {
+  self->cap = self->size;
+  self->data = realloc_checked(self->data, sizeof(struct array_list_pair) * self->cap);
 }
