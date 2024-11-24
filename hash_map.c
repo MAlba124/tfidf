@@ -191,14 +191,16 @@ void hash_map_free(struct hash_map *self) {
   free_buckets(self->buckets, self->n_buckets);
 }
 
+// sdbm hash function see: http://www.cse.yorku.ca/~oz/hash.html
 uint64_t hash_map_hash_char_star(const void *key) {
   const char *str = key;
-  uint64_t sum = 0;
-  while (*str != '\0') {
-    sum += *str;
-    str++;
-  }
-  return sum;
+  uint64_t hash = 5381;
+  int c;
+
+  while ((c = *str++))
+    hash = c + (hash << 6) + (hash << 16) - hash;
+
+  return hash;
 }
 
 bool hash_map_compare_char_star(const void *lhs, const void *rhs) {
