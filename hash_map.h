@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define HASH_MAP_DEFAULT_BUCKET_COUNT 50
+#define HASH_MAP_DEFAULT_BUCKET_COUNT 512
 #define HASH_MAP_THRESHOLD 0.75
 
 struct linked_list_node {

@@ -175,6 +175,7 @@ int main() {
       goto clean;
     }
 
+    // TODO: no need to malloc
     struct search_result *top_10 =
         malloc_checked(sizeof(struct search_result) * 10);
     for (size_t i = 0; i < 10; i++) {
@@ -212,6 +213,8 @@ int main() {
       free(top_10);
       goto clean;
     }
+
+    // TODO: sort top_10 before printing
 
     for (size_t i = 0; i < 10; i++) {
       if (top_10[i].score > 0.0)

@@ -108,7 +108,7 @@ static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
 
   double load_factor = (double)self->entries / (double)self->n_buckets;
   if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_rehash(self, self->entries + HASH_MAP_DEFAULT_BUCKET_COUNT);
+    hash_map_rehash(self, self->n_buckets * 2);
   }
 
   int64_t idx = (self->hash)(key) % self->n_buckets;
@@ -139,7 +139,7 @@ void hash_map_insert(struct hash_map *self, void *key, void *value,
 
   double load_factor = (double)self->entries / (double)self->n_buckets;
   if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_rehash(self, self->entries + HASH_MAP_DEFAULT_BUCKET_COUNT);
+    hash_map_rehash(self, self->n_buckets * 2);
   }
 
   int64_t idx = (self->hash)(key) % self->n_buckets;
