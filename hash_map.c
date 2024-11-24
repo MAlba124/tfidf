@@ -7,10 +7,10 @@
 #include "hash_map.h"
 #include "mem.h"
 
-static void hash_map_insert_no_copy(struct hash_map *self, void *key,
+static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
                                     void *value);
 
-struct linked_list_node *linked_list_new(char *key, char *value) {
+static inline struct linked_list_node *linked_list_new(char *key, char *value) {
   struct linked_list_node *node =
       malloc_checked(sizeof(struct linked_list_node));
   node->key = key;
@@ -19,7 +19,7 @@ struct linked_list_node *linked_list_new(char *key, char *value) {
   return node;
 }
 
-void linked_list_free(struct linked_list_node *root) {
+static void linked_list_free(struct linked_list_node *root) {
   if (root->next == NULL) {
     free(root->key);
     free(root->value);
@@ -33,7 +33,7 @@ void linked_list_free(struct linked_list_node *root) {
   free(root);
 }
 
-void linked_list_shallow_free(struct linked_list_node *root) {
+static void linked_list_shallow_free(struct linked_list_node *root) {
   if (root->next == NULL) {
     free(root);
     return;
@@ -43,7 +43,7 @@ void linked_list_shallow_free(struct linked_list_node *root) {
   free(root);
 }
 
-static struct hash_map_bucket *new_buckets(size_t n) {
+static inline struct hash_map_bucket *new_buckets(size_t n) {
   struct hash_map_bucket *buckets =
       malloc_checked(sizeof(struct hash_map_bucket) * n);
   for (size_t i = 0; i < n; i++)
@@ -51,7 +51,7 @@ static struct hash_map_bucket *new_buckets(size_t n) {
   return buckets;
 }
 
-static void free_buckets(struct hash_map_bucket *buckets, size_t n) {
+static inline void free_buckets(struct hash_map_bucket *buckets, size_t n) {
   for (size_t i = 0; i < n; i++)
     if (buckets[i].root != NULL) {
       linked_list_free(buckets[i].root);
@@ -59,7 +59,7 @@ static void free_buckets(struct hash_map_bucket *buckets, size_t n) {
   free(buckets);
 }
 
-static void free_buckets_shallow(struct hash_map_bucket *buckets, size_t n) {
+static inline void free_buckets_shallow(struct hash_map_bucket *buckets, size_t n) {
   for (size_t i = 0; i < n; i++)
     if (buckets[i].root != NULL) {
       linked_list_shallow_free(buckets[i].root);
@@ -67,7 +67,7 @@ static void free_buckets_shallow(struct hash_map_bucket *buckets, size_t n) {
   free(buckets);
 }
 
-static void hash_map_rehash(struct hash_map *self, size_t increase) {
+static inline void hash_map_rehash(struct hash_map *self, size_t increase) {
   struct hash_map_bucket *old = self->buckets;
   size_t old_n_buckets = self->n_buckets;
   self->buckets = new_buckets(self->n_buckets + increase);
@@ -101,7 +101,7 @@ struct hash_map hash_map_new(uint64_t (*hash)(const void *value),
   return hash_map_new_with_cap(HASH_MAP_DEFAULT_BUCKET_COUNT, hash, compare);
 }
 
-static void hash_map_insert_no_copy(struct hash_map *self, void *key,
+static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
                                     void *value) {
   if (hash_map_contains(self, key))
     return;
@@ -194,8 +194,9 @@ void hash_map_free(struct hash_map *self) {
 uint64_t hash_map_hash_char_star(const void *key) {
   const char *str = key;
   uint64_t sum = 0;
-  for (size_t i = 0; i < strlen(key); i++) {
-    sum += str[i];
+  while (*str != '\0') {
+    sum += *str;
+    str++;
   }
   return sum;
 }
@@ -203,6 +204,7 @@ uint64_t hash_map_hash_char_star(const void *key) {
 bool hash_map_compare_char_star(const void *vlhs, const void *vrhs) {
   const char *lhs = vlhs;
   const char *rhs = vrhs;
+  // TODO: reduce time complexity from 3n to n
   const size_t lhs_len = strlen(lhs);
   const size_t rhs_len = strlen(rhs);
 

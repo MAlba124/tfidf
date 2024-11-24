@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 #include <readline/readline.h>
 
@@ -39,6 +40,9 @@ int main() {
   struct hash_map idf = hash_map_new(hash_uint64_t, compare_uint64_t);
   struct skvs_pair pair;
   float entries = 0;
+
+  size_t print_counter = 0;
+  time_t start_time = time(NULL);
 
   while (1) {
     skvs_reader_next_pair(&corpus_reader, &pair, true);
@@ -103,9 +107,17 @@ int main() {
     array_list_push(&corpus, &corpus_all);
 
     entries++;
+    print_counter++;
+    if (print_counter == 10000) {
+      print_counter = 0;
+      time_t elapsed = time(NULL) - start_time;
+      printf("\r%.0f entries loaded in %lis", entries, elapsed);
+      fflush(stdout);
+    }
   }
 
-  printf("Entries: %.0f\n", entries);
+  time_t elapsed = time(NULL) - start_time;
+  printf("\r%.0f entries loaded in %lis\n", entries, elapsed);
 
   skvs_reader_free(&corpus_reader);
 
