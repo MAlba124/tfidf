@@ -82,7 +82,7 @@ static inline void hash_map_rehash(struct hash_map *self, size_t increase) {
 }
 
 struct hash_map
-hash_map_new_with_cap(size_t cap, uint64_t (*hash)(const void *key),
+hash_map_new_with_cap(size_t cap, uint32_t (*hash)(const void *key),
                       bool (*compare)(const void *lhs, const void *rhs)) {
   struct hash_map map = {.hash = hash, .compare = compare};
   map.buckets = new_buckets(cap);
@@ -91,7 +91,7 @@ hash_map_new_with_cap(size_t cap, uint64_t (*hash)(const void *key),
   return map;
 }
 
-struct hash_map hash_map_new(uint64_t (*hash)(const void *value),
+struct hash_map hash_map_new(uint32_t (*hash)(const void *value),
                              bool (*compare)(const void *lhs,
                                              const void *rhs)) {
   return hash_map_new_with_cap(HASH_MAP_DEFAULT_BUCKET_COUNT, hash, compare);
@@ -107,7 +107,7 @@ static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
     hash_map_rehash(self, self->n_buckets * 2);
   }
 
-  int64_t idx = (self->hash)(key) % self->n_buckets;
+  uint32_t idx = (self->hash)(key) % self->n_buckets;
   struct hash_map_bucket bucket = self->buckets[idx];
   struct linked_list_node *new_node = linked_list_new(key, value);
 
@@ -138,7 +138,7 @@ void hash_map_insert(struct hash_map *self, void *key, void *value,
     hash_map_rehash(self, self->n_buckets * 2);
   }
 
-  int64_t idx = (self->hash)(key) % self->n_buckets;
+  uint32_t idx = (self->hash)(key) % self->n_buckets;
   struct hash_map_bucket bucket = self->buckets[idx];
   char *key_data = malloc_checked(key_size);
   memcpy(key_data, key, key_size);
@@ -167,7 +167,7 @@ void *hash_map_get(struct hash_map *self, void *key) {
   if (self->entries == 0 || self->n_buckets == 0)
     return NULL;
 
-  int64_t idx = (self->hash)(key) % self->n_buckets;
+  uint32_t idx = (self->hash)(key) % self->n_buckets;
   struct hash_map_bucket bucket = self->buckets[idx];
   struct linked_list_node *node = bucket.root;
   while (node != NULL) {
@@ -188,9 +188,9 @@ void hash_map_free(struct hash_map *self) {
 }
 
 // sdbm hash function see: http://www.cse.yorku.ca/~oz/hash.html
-uint64_t hash_map_hash_char_star(const void *key) {
+uint32_t hash_map_hash_char_star(const void *key) {
   const char *str = key;
-  uint64_t hash = 5381;
+  uint32_t hash = 5381;
   int c;
 
   while ((c = *str++))

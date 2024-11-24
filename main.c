@@ -13,12 +13,12 @@
 #include "skvs.h"
 #include "tokenizer.h"
 
-static uint64_t hash_uint64_t(const void *key) {
-  return *(uint64_t *)key;
+static uint32_t hash_uint32_t(const void *key) {
+  return *(uint32_t *)key;
 }
 
-static bool compare_uint64_t(const void *lhs, const void *rhs) {
-  return *(uint64_t *)lhs == *(uint64_t *)rhs;
+static bool compare_uint32_t(const void *lhs, const void *rhs) {
+  return *(uint32_t *)lhs == *(uint32_t *)rhs;
 }
 
 struct search_result {
@@ -37,7 +37,7 @@ int main() {
 
   struct array_list corpus = array_list_new(100000);
   struct tokenizer tokizer = tokenizer_new();
-  struct hash_map idf = hash_map_new(hash_uint64_t, compare_uint64_t);
+  struct hash_map idf = hash_map_new(hash_uint32_t, compare_uint32_t);
   struct skvs_pair pair;
   float entries = 0;
 
@@ -49,7 +49,7 @@ int main() {
     if (!skvs_pair_ok(&pair))
       break;
 
-    struct hash_map corpus_map = hash_map_new(hash_uint64_t, compare_uint64_t);
+    struct hash_map corpus_map = hash_map_new(hash_uint32_t, compare_uint32_t);
     char *pair_value_ptr = pair.value;
     char *this_start = pair.value;
     // I think this includes space characters in some cases
@@ -57,7 +57,7 @@ int main() {
       if (*pair.value == ' ') {
         *pair.value = '\0';
         if (this_start != pair.value) {
-          uint64_t tok = tokenizer_add(&tokizer, this_start);
+          uint32_t tok = tokenizer_add(&tokizer, this_start);
           float one = 1.0;
           void *tok_tf = hash_map_get(&corpus_map, &tok);
           if (tok_tf != NULL) {
@@ -66,10 +66,10 @@ int main() {
             if (tok_idf != NULL)
                 *(float *)tok_idf += 1.0;
             else
-                hash_map_insert(&idf, &tok, &one, sizeof(uint64_t), sizeof(float));
+                hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
           }
           else
-            hash_map_insert(&corpus_map, &tok, &one, sizeof(uint64_t), sizeof(float));
+            hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
         }
         pair.value++;
         while (*pair.value == ' ' && *pair.value != '\0') {
@@ -82,7 +82,7 @@ int main() {
     }
 
     if (this_start != pair.value) {
-      uint64_t tok = tokenizer_add(&tokizer, this_start);
+      uint32_t tok = tokenizer_add(&tokizer, this_start);
       float one = 1.0;
       void *tok_tf = hash_map_get(&corpus_map, &tok);
       if (tok_tf != NULL) {
@@ -91,10 +91,10 @@ int main() {
         if (tok_idf != NULL)
           *(float *)tok_idf += 1.0;
         else
-          hash_map_insert(&idf, &tok, &one, sizeof(uint64_t), sizeof(float));
+          hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
       }
       else
-      hash_map_insert(&corpus_map, &tok, &one, sizeof(uint64_t), sizeof(float));
+      hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
     }
 
     free(pair_value_ptr);
@@ -137,7 +137,7 @@ int main() {
     if (query == NULL)
       break;
 
-    uint64_t *tokens = malloc_checked(0);
+    uint32_t *tokens = malloc_checked(0);
     size_t n_tokens = 0;
 
     char *rolling_query = query;
@@ -146,10 +146,10 @@ int main() {
       if (*rolling_query == ' ') {
         *rolling_query = '\0';
         if (this_start != rolling_query) {
-          uint64_t *tok = tokenizer_get(&tokizer, this_start);
+          uint32_t *tok = tokenizer_get(&tokizer, this_start);
           if (tok != NULL) {
             n_tokens++;
-            tokens = realloc_checked(tokens, sizeof(uint64_t) * n_tokens);
+            tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
             tokens[n_tokens - 1] = *tok;
           }
         }
@@ -164,10 +164,10 @@ int main() {
     }
 
     if (this_start != rolling_query) {
-      uint64_t *tok = tokenizer_get(&tokizer, this_start);
+      uint32_t *tok = tokenizer_get(&tokizer, this_start);
       if (tok != NULL) {
         n_tokens++;
-        tokens = realloc_checked(tokens, sizeof(uint64_t) * n_tokens);
+        tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
         tokens[n_tokens - 1] = *tok;
       }
     }
@@ -177,11 +177,10 @@ int main() {
       goto clean;
     }
 
-    // TODO: no need to malloc
-    struct search_result *top_10 =
-        malloc_checked(sizeof(struct search_result) * 10);
+    struct search_result top_10[10];
     for (size_t i = 0; i < 10; i++) {
       top_10[i].score = 0.0;
+      top_10[i].src = NULL;
     }
 
     bool found_matching = false;
@@ -206,24 +205,34 @@ int main() {
           .src = doc->location,
           .score = score
         };
-        memcpy(&top_10[lowest_idx], &da_result, sizeof(struct search_result));
+        top_10[lowest_idx] = da_result;
       }
     }
 
     if (!found_matching) {
       printf("No results\n");
-      free(top_10);
       goto clean;
     }
 
-    // TODO: sort top_10 before printing
-
-    for (size_t i = 0; i < 10; i++) {
-      if (top_10[i].score > 0.0)
-        printf("Score: %.3f URL: %s\n", top_10[i].score, top_10[i].src);
+    bool swapped = true;
+    size_t n = 10;
+    while (swapped) {
+      swapped = false;
+      for (size_t i = 1; i < n; i++) {
+        if (top_10[i - 1].score > top_10[i].score) {
+          struct search_result swapee = top_10[i - 1];
+          top_10[i - 1] = top_10[i];
+          top_10[i] = swapee;
+          swapped = true;
+        }
+      }
+      n--;
     }
 
-    free(top_10);
+    for (size_t i = 10; i > 0; i--) {
+      if (top_10[i - 1].score > 0.0)
+        printf("%2ld. | Score: %.3f URL: %s\n", 10 - i + 1, top_10[i - 1].score, top_10[i - 1].src);
+    }
 
   clean:
     free(tokens);

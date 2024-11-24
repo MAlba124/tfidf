@@ -16,18 +16,18 @@ void tokenizer_free(struct tokenizer *self) {
   hash_map_free(&self->map);
 }
 
-uint64_t tokenizer_add(struct tokenizer *self, char *dat) {
+uint32_t tokenizer_add(struct tokenizer *self, char *dat) {
   void *possible_token = hash_map_get(&self->map, dat);
   if (possible_token != NULL)
-    return *(uint64_t *)possible_token;
+    return *(uint32_t *)possible_token;
 
-  uint64_t token = self->counter;
-  hash_map_insert(&self->map, dat, &token, strlen(dat) + 1, sizeof(uint64_t));
+  uint32_t token = self->counter;
+  hash_map_insert(&self->map, dat, &token, strlen(dat) + 1, sizeof(uint32_t));
   self->counter++;
   return token;
 }
 
-uint64_t *tokenizer_get(struct tokenizer *self, char *dat) {
+uint32_t *tokenizer_get(struct tokenizer *self, char *dat) {
   void *token = hash_map_get(&self->map, dat);
-  return (uint64_t *)token;
+  return (uint32_t *)token;
 }

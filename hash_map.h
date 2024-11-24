@@ -19,21 +19,21 @@ struct hash_map_bucket {
 };
 
 struct hash_map {
-  uint64_t (*hash)(const void * value);
+  uint32_t (*hash)(const void * value);
   bool (*compare)(const void *rhs, const void *lhs);
   struct hash_map_bucket *buckets;
   size_t entries;
   size_t n_buckets;
 };
 
-struct hash_map hash_map_new(uint64_t (*hash)(const void *key), bool (*compare)(const void *lhs, const void *rhs));
-struct hash_map hash_map_new_with_cap(size_t cap, uint64_t (*hash)(const void *key), bool (*compare)(const void *lhs, const void *rhs));
+struct hash_map hash_map_new(uint32_t (*hash)(const void *key), bool (*compare)(const void *lhs, const void *rhs));
+struct hash_map hash_map_new_with_cap(size_t cap, uint32_t (*hash)(const void *key), bool (*compare)(const void *lhs, const void *rhs));
 void hash_map_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size);
 void *hash_map_get(struct hash_map *self, void *key);
 bool hash_map_contains(struct hash_map *self, void *key);
 void hash_map_free(struct hash_map *self);
 
-uint64_t hash_map_hash_char_star(const void *key);
+uint32_t hash_map_hash_char_star(const void *key);
 bool hash_map_compare_char_star(const void *lhs, const void *rhs);
 
 #endif // __TFIDF_H_MAP
