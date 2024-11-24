@@ -34,6 +34,6 @@ bool hash_map_contains(struct hash_map *self, void *key);
 void hash_map_free(struct hash_map *self);
 
 uint64_t hash_map_hash_char_star(const void *key);
-bool hash_map_compare_char_star(const void *vlhs, const void *vrhs);
+bool hash_map_compare_char_star(const void *lhs, const void *rhs);
 
 #endif // __TFIDF_H_MAP

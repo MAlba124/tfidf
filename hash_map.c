@@ -201,15 +201,6 @@ uint64_t hash_map_hash_char_star(const void *key) {
   return sum;
 }
 
-bool hash_map_compare_char_star(const void *vlhs, const void *vrhs) {
-  const char *lhs = vlhs;
-  const char *rhs = vrhs;
-  // TODO: reduce time complexity from 3n to n
-  const size_t lhs_len = strlen(lhs);
-  const size_t rhs_len = strlen(rhs);
-
-  if (lhs_len != rhs_len)
-    return false;
-
-  return strcmp(lhs, rhs) == 0;
+bool hash_map_compare_char_star(const void *lhs, const void *rhs) {
+  return strcmp((char *)lhs, (char *)rhs) == 0;
 }
