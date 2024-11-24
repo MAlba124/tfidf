@@ -209,6 +209,7 @@ int main() {
 
     if (!found_matching) {
       printf("No results\n");
+      free(top_10);
       goto clean;
     }
 
