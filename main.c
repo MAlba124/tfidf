@@ -72,7 +72,7 @@ int main() {
 
   size_t print_counter = 0;
   time_t start_time = time(NULL);
-  float one = 1.0;
+  float zero = 0.0;
 
   while (1) {
     skvs_reader_next_pair(&corpus_reader, &pair, true);
@@ -86,25 +86,14 @@ int main() {
 
     float corpus_length = 0;
     while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
-      if (*term_element == '\0')
-        goto next_doc_tok;
-
-      uint32_t tok = tokenizer_add(&tokizer, term_element);
-      void *tok_tf = hash_map_get(&corpus_map, &tok);
-
-      if (tok_tf != NULL) {
-        *(float *)tok_tf += 1.0;
-        void *tok_idf = hash_map_get(&idf, &tok);
-        if (tok_idf != NULL)
-          *(float *)tok_idf += 1.0;
-        else
-          hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
-      } else
-        hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
-
-      corpus_length++;
-
-    next_doc_tok:
+      if (*term_element != '\0') {
+        uint32_t tok = tokenizer_add(&tokizer, term_element);
+        float *tok_tf = (float *)hash_map_get_or_insert(&corpus_map, &tok, &zero, sizeof(uint32_t), sizeof(float));
+        float *tok_idf = (float *)hash_map_get_or_insert(&idf, &tok, &zero, sizeof(uint32_t), sizeof(float));
+        (*tok_tf)++;
+        (*tok_idf)++;
+        corpus_length++;
+      }
       term_element = tmp;
     }
 
@@ -163,17 +152,15 @@ int main() {
     char *term_element = query;
     char *tmp;
     while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
-      if (*term_element == '\0')
-        goto next_query_tok;
-
-      uint32_t *tok = tokenizer_get(&tokizer, term_element);
-      if (tok != NULL) {
-        n_tokens++;
-        tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
-        tokens[n_tokens - 1] = *tok;
+      if (*term_element != '\0') {
+        uint32_t *tok = tokenizer_get(&tokizer, term_element);
+        if (tok != NULL) {
+          n_tokens++;
+          tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
+          tokens[n_tokens - 1] = *tok;
+        }
       }
 
-    next_query_tok:
       term_element = tmp;
     }
 

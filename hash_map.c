@@ -3,9 +3,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "hash_map.h"
 #include "mem.h"
+
+#define UNREACHABLE()                                                          \
+  printf("Reached unreachable code\n");                                        \
+  exit(1);
 
 static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
                                     void *value);
@@ -161,6 +166,51 @@ void hash_map_insert(struct hash_map *self, void *key, void *value,
     }
     node = node->next;
   }
+}
+
+void *hash_map_get_or_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size) {
+  if (!hash_map_contains(self, key)) {
+    double load_factor = (double)self->entries / (double)self->n_buckets;
+    if (load_factor > HASH_MAP_THRESHOLD) {
+        hash_map_rehash(self, self->n_buckets * 2);
+    }
+
+    uint32_t idx = (self->hash)(key) % self->n_buckets;
+    struct hash_map_bucket bucket = self->buckets[idx];
+    char *key_data = malloc_checked(key_size);
+    memcpy(key_data, key, key_size);
+    char *value_data = malloc_checked(value_size);
+    memcpy(value_data, value, value_size);
+    struct linked_list_node *new_node = linked_list_new(key_data, value_data);
+
+    struct linked_list_node *node = bucket.root;
+    if (node == NULL) {
+        self->buckets[idx].root = new_node;
+        self->entries++;
+        return new_node->value;
+    }
+
+    while (true) {
+      if (node->next == NULL) {
+        node->next = new_node;
+        self->entries++;
+        break;
+      }
+      node = node->next;
+    }
+    return new_node->value;
+  }
+
+  uint32_t idx = (self->hash)(key) % self->n_buckets;
+  struct hash_map_bucket bucket = self->buckets[idx];
+  struct linked_list_node *node = bucket.root;
+  while (node != NULL) {
+    if (self->compare(key, (void *)node->key))
+      return (void *)node->value;
+    node = node->next;
+  }
+
+  UNREACHABLE();
 }
 
 void *hash_map_get(struct hash_map *self, void *key) {

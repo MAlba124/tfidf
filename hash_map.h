@@ -30,6 +30,7 @@ struct hash_map hash_map_new(uint32_t (*hash)(const void *key), bool (*compare)(
 struct hash_map hash_map_new_with_cap(size_t cap, uint32_t (*hash)(const void *key), bool (*compare)(const void *lhs, const void *rhs));
 void hash_map_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size);
 void *hash_map_get(struct hash_map *self, void *key);
+void *hash_map_get_or_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size);
 bool hash_map_contains(struct hash_map *self, void *key);
 void hash_map_free(struct hash_map *self);
 
