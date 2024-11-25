@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <readline/readline.h>
 
@@ -13,6 +14,11 @@
 #include "skvs.h"
 #include "tokenizer.h"
 
+struct search_result {
+  char *src;
+  float score;
+};
+
 static uint32_t hash_uint32_t(const void *key) {
   return *(uint32_t *)key;
 }
@@ -21,10 +27,33 @@ static bool compare_uint32_t(const void *lhs, const void *rhs) {
   return *(uint32_t *)lhs == *(uint32_t *)rhs;
 }
 
-struct search_result {
-  char *src;
-  float score;
-};
+static inline char *parse_next_element_in_str(char *str) {
+  if (*str == '\0')
+    return NULL;
+
+  char *write = str;
+  char *read = str;
+  bool done = false;
+
+  while (!done && *read != '\0') {
+    switch (*read) {
+    case 'A' ... 'Z':
+      *write++ = tolower(*read++);
+      break;
+    case '0' ... '9':
+    case 'a' ... 'z':
+      *write++ = *read++;
+      break;
+    default:
+      *write = '\0';
+      read++;
+      done = true;
+      break;
+    }
+  }
+
+  return read;
+}
 
 int main() {
   struct skvs_reader corpus_reader = skvs_reader_new("reddit_btc_test/comments.skvs");
@@ -43,6 +72,7 @@ int main() {
 
   size_t print_counter = 0;
   time_t start_time = time(NULL);
+  float one = 1.0;
 
   while (1) {
     skvs_reader_next_pair(&corpus_reader, &pair, true);
@@ -50,41 +80,18 @@ int main() {
       break;
 
     struct hash_map corpus_map = hash_map_new(hash_uint32_t, compare_uint32_t);
-    char *pair_value_ptr = pair.value;
-    char *this_start = pair.value;
-    // I think this includes space characters in some cases
-    while (*pair.value != '\0') {
-      if (*pair.value == ' ') {
-        *pair.value = '\0';
-        if (this_start != pair.value) {
-          uint32_t tok = tokenizer_add(&tokizer, this_start);
-          float one = 1.0;
-          void *tok_tf = hash_map_get(&corpus_map, &tok);
-          if (tok_tf != NULL) {
-            *(float *)tok_tf += 1.0;
-            void *tok_idf = hash_map_get(&idf, &tok);
-            if (tok_idf != NULL)
-                *(float *)tok_idf += 1.0;
-            else
-                hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
-          }
-          else
-            hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
-        }
-        pair.value++;
-        while (*pair.value == ' ' && *pair.value != '\0') {
-          pair.value++;
-        }
-        this_start = pair.value;
-      } else {
-        pair.value++;
-      }
-    }
 
-    if (this_start != pair.value) {
-      uint32_t tok = tokenizer_add(&tokizer, this_start);
-      float one = 1.0;
+    char *term_element = pair.value;
+    char *tmp;
+
+    float corpus_length = 0;
+    while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
+      if (*term_element == '\0')
+        goto next_doc_tok;
+
+      uint32_t tok = tokenizer_add(&tokizer, term_element);
       void *tok_tf = hash_map_get(&corpus_map, &tok);
+
       if (tok_tf != NULL) {
         *(float *)tok_tf += 1.0;
         void *tok_idf = hash_map_get(&idf, &tok);
@@ -92,12 +99,24 @@ int main() {
           *(float *)tok_idf += 1.0;
         else
           hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
-      }
-      else
-      hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
+      } else
+        hash_map_insert(&corpus_map, &tok, &one, sizeof(uint32_t), sizeof(float));
+
+      corpus_length++;
+
+    next_doc_tok:
+      term_element = tmp;
     }
 
-    free(pair_value_ptr);
+    free(pair.value);
+
+    for (size_t i = 0; i < corpus_map.n_buckets; i++) {
+      struct linked_list_node *nod = corpus_map.buckets[i].root;
+      while (nod) {
+        *(float *)nod->value /= corpus_length;
+        nod = nod->next;
+      }
+    }
 
     struct array_list_pair corpus_all = {
       .location = pair.key,
@@ -121,6 +140,7 @@ int main() {
 
   skvs_reader_free(&corpus_reader);
 
+  // Calculate idf
   for (size_t i = 0; i < idf.n_buckets; i++) {
     struct linked_list_node *node = idf.buckets[i].root;
     while (node) {
@@ -140,36 +160,21 @@ int main() {
     uint32_t *tokens = malloc_checked(0);
     size_t n_tokens = 0;
 
-    char *rolling_query = query;
-    char *this_start = rolling_query;
-    while (*rolling_query != '\0') {
-      if (*rolling_query == ' ') {
-        *rolling_query = '\0';
-        if (this_start != rolling_query) {
-          uint32_t *tok = tokenizer_get(&tokizer, this_start);
-          if (tok != NULL) {
-            n_tokens++;
-            tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
-            tokens[n_tokens - 1] = *tok;
-          }
-        }
-        rolling_query++;
-        while (*rolling_query == ' ' && *rolling_query != '\0') {
-          rolling_query++;
-        }
-        this_start = rolling_query;
-      } else {
-        rolling_query++;
-      }
-    }
+    char *term_element = query;
+    char *tmp;
+    while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
+      if (*term_element == '\0')
+        goto next_query_tok;
 
-    if (this_start != rolling_query) {
-      uint32_t *tok = tokenizer_get(&tokizer, this_start);
+      uint32_t *tok = tokenizer_get(&tokizer, term_element);
       if (tok != NULL) {
         n_tokens++;
         tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
         tokens[n_tokens - 1] = *tok;
       }
+
+    next_query_tok:
+      term_element = tmp;
     }
 
     if (n_tokens == 0) {
@@ -185,6 +190,7 @@ int main() {
 
     bool found_matching = false;
 
+    // TF-IDF for document
     for (size_t i = 0; i < corpus.size; i++) {
       struct array_list_pair *doc = &corpus.data[i];
       float score = 0.0;
@@ -196,6 +202,8 @@ int main() {
           found_matching = true;
         }
       }
+
+      // Insert the found score to the top10 list if it belongs there
       size_t lowest_idx = 0;
       for (size_t j = 1; j < 10; j++)
         if (top_10[j].score < top_10[lowest_idx].score)
