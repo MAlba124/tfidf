@@ -2,8 +2,19 @@
 #define __TFIDF_H_MEM
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <assert.h>
 
-void *malloc_checked(size_t size);
-void *realloc_checked(void *ptr, size_t size);
+inline void *malloc_checked(size_t size) {
+  void *ptr = malloc(size);
+  assert(ptr);
+  return ptr;
+}
+
+inline void *realloc_checked(void *ptr, size_t size) {
+  void *newptr = realloc(ptr, size);
+  assert(newptr);
+  return newptr;
+}
 
 #endif // __TFIDF_H_MEM

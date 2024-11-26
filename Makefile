@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -Werror -pipe -ggdb -std=c99
 # CFLAGS = -Wall -Wextra -Werror -pipe -O3 -march=native -std=c99
 CLINKFLAGS = -lm -lreadline
 
-OBJS = hash_map.o mem.o tokenizer.o skvs.o arraylist.o
+OBJS = hash_map.o tokenizer.o skvs.o arraylist.o
 
 # valgrind --leak-check=full --show-leak-kinds=all -s ./tfidf
 
@@ -20,9 +20,11 @@ tfidf: $(OBJS) main.c
 .PHONY: build
 build: tfidf
 
-test_map: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o test_map test_map.c $(CLINKFLAGS)
-	./test_map
+test: $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o test test.c $(CLINKFLAGS)
+	./test
+	@valgrind --leak-check=full -s ./test
+	@rm ./test
 
 .PHONY: clean
 clean:

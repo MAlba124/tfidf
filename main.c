@@ -99,6 +99,7 @@ int main() {
 
     free(pair.value);
 
+    // Calculate TF
     for (size_t i = 0; i < corpus_map.n_buckets; i++) {
       struct linked_list_node *nod = corpus_map.buckets[i].root;
       while (nod) {
@@ -129,15 +130,19 @@ int main() {
 
   skvs_reader_free(&corpus_reader);
 
+  float corpus_dimensions = 0;
   // Calculate idf
   for (size_t i = 0; i < idf.n_buckets; i++) {
     struct linked_list_node *node = idf.buckets[i].root;
     while (node) {
       float df = *(float *)node->value;
-      *(float *)node->value = logf(entries / df);
+      *(float *)node->value = log10f(entries / df);
       node = node->next;
+      corpus_dimensions++;
     }
   }
+
+  printf("Corpus has %.0f dimensions\n", corpus_dimensions);
 
   array_list_shrink_to_fit(&corpus);
 

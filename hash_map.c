@@ -8,10 +8,6 @@
 #include "hash_map.h"
 #include "mem.h"
 
-#define UNREACHABLE()                                                          \
-  printf("Reached unreachable code\n");                                        \
-  exit(1);
-
 static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
                                     void *value);
 
@@ -24,7 +20,7 @@ static inline struct linked_list_node *linked_list_new(char *key, char *value) {
   return node;
 }
 
-static void linked_list_free(struct linked_list_node *root) {
+static inline void linked_list_free(struct linked_list_node *root) {
   struct linked_list_node *nod;
   while (root != NULL) {
     nod = root;
@@ -35,7 +31,7 @@ static void linked_list_free(struct linked_list_node *root) {
   }
 }
 
-static void linked_list_shallow_free(struct linked_list_node *root) {
+static inline void linked_list_shallow_free(struct linked_list_node *root) {
   struct linked_list_node *nod;
   while (root != NULL) {
     nod = root;
@@ -54,19 +50,28 @@ static inline struct hash_map_bucket *new_buckets(size_t n) {
 
 static inline void free_buckets(struct hash_map_bucket *buckets, size_t n) {
   for (size_t i = 0; i < n; i++)
-    if (buckets[i].root != NULL) {
+    if (buckets[i].root != NULL)
       linked_list_free(buckets[i].root);
-    }
   free(buckets);
 }
 
 static inline void free_buckets_shallow(struct hash_map_bucket *buckets, size_t n) {
   for (size_t i = 0; i < n; i++)
-    if (buckets[i].root != NULL) {
+    if (buckets[i].root != NULL)
       linked_list_shallow_free(buckets[i].root);
-    }
   free(buckets);
 }
+
+/* static void internal_hash_map_print_char_star_int(struct hash_map *map) { */
+/*   printf("INTERNAL Entries in map: %li\n", map->entries); */
+/*   for (size_t i = 0; i < map->n_buckets; i++) { */
+/*     struct linked_list_node *node = map->buckets[i].root; */
+/*     while (node) { */
+/*       printf("\t## (bucket) %li : (key) %s : (value) %i\n", i, node->key, *(int *)node->value); */
+/*       node = node->next; */
+/*     } */
+/*   } */
+/* } */
 
 static inline void hash_map_rehash(struct hash_map *self, size_t increase) {
   struct hash_map_bucket *old = self->buckets;
@@ -104,27 +109,22 @@ struct hash_map hash_map_new(uint32_t (*hash)(const void *value),
 
 static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
                                     void *value) {
-  if (hash_map_contains(self, key))
-    return;
-
-  double load_factor = (double)self->entries / (double)self->n_buckets;
-  if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_rehash(self, self->n_buckets * 2);
-  }
-
   uint32_t idx = (self->hash)(key) % self->n_buckets;
-  struct hash_map_bucket bucket = self->buckets[idx];
-  struct linked_list_node *new_node = linked_list_new(key, value);
+  struct hash_map_bucket *bucket = &self->buckets[idx];
 
-  struct linked_list_node *node = bucket.root;
+  struct linked_list_node *node = bucket->root;
   if (node == NULL) {
-    self->buckets[idx].root = new_node;
+    struct linked_list_node *new_node = linked_list_new(key, value);
+    bucket->root = new_node;
     self->entries++;
     return;
   }
 
   while (true) {
-    if (node->next == NULL) {
+    if ((self->compare)(node->key, key))
+      return;
+    else if (node->next == NULL) {
+      struct linked_list_node *new_node = linked_list_new(key, value);
       node->next = new_node;
       self->entries++;
       break;
@@ -133,35 +133,45 @@ static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
   }
 }
 
+// TODO: fix (broken, see valgrind)
 void hash_map_insert(struct hash_map *self, void *key, void *value,
                      size_t key_size, size_t value_size) {
-  if (hash_map_contains(self, key))
-    return;
-
-  double load_factor = (double)self->entries / (double)self->n_buckets;
-  if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_rehash(self, self->n_buckets * 2);
-  }
-
   uint32_t idx = (self->hash)(key) % self->n_buckets;
-  struct hash_map_bucket bucket = self->buckets[idx];
-  char *key_data = malloc_checked(key_size);
-  memcpy(key_data, key, key_size);
-  char *value_data = malloc_checked(value_size);
-  memcpy(value_data, value, value_size);
-  struct linked_list_node *new_node = linked_list_new(key_data, value_data);
+  struct hash_map_bucket *bucket = &self->buckets[idx];
 
-  struct linked_list_node *node = bucket.root;
+  struct linked_list_node *node = bucket->root;
   if (node == NULL) {
-    self->buckets[idx].root = new_node;
+    char *key_data = malloc_checked(key_size);
+    memcpy(key_data, key, key_size);
+    char *value_data = malloc_checked(value_size);
+    memcpy(value_data, value, value_size);
+    struct linked_list_node *new_node = linked_list_new(key_data, value_data);
+    bucket->root = new_node;
     self->entries++;
+
+    double load_factor = (double)self->entries / (double)self->n_buckets;
+    if (load_factor > HASH_MAP_THRESHOLD) {
+      hash_map_rehash(self, self->n_buckets);
+    }
     return;
   }
 
   while (true) {
-    if (node->next == NULL) {
+    if ((self->compare)(node->key, key)) {
+      return;
+    } else if (node->next == NULL) {
+      char *key_data = malloc_checked(key_size);
+      memcpy(key_data, key, key_size);
+      char *value_data = malloc_checked(value_size);
+      memcpy(value_data, value, value_size);
+      struct linked_list_node *new_node = linked_list_new(key_data, value_data);
       node->next = new_node;
       self->entries++;
+
+      double load_factor = (double)self->entries / (double)self->n_buckets;
+      if (load_factor > HASH_MAP_THRESHOLD) {
+        hash_map_rehash(self, self->n_buckets);
+      }
       break;
     }
     node = node->next;
@@ -169,48 +179,38 @@ void hash_map_insert(struct hash_map *self, void *key, void *value,
 }
 
 void *hash_map_get_or_insert(struct hash_map *self, void *key, void *value, size_t key_size, size_t value_size) {
-  if (!hash_map_contains(self, key)) {
-    double load_factor = (double)self->entries / (double)self->n_buckets;
-    if (load_factor > HASH_MAP_THRESHOLD) {
-        hash_map_rehash(self, self->n_buckets * 2);
-    }
-
-    uint32_t idx = (self->hash)(key) % self->n_buckets;
-    struct hash_map_bucket bucket = self->buckets[idx];
-    char *key_data = malloc_checked(key_size);
-    memcpy(key_data, key, key_size);
-    char *value_data = malloc_checked(value_size);
-    memcpy(value_data, value, value_size);
-    struct linked_list_node *new_node = linked_list_new(key_data, value_data);
-
-    struct linked_list_node *node = bucket.root;
-    if (node == NULL) {
-        self->buckets[idx].root = new_node;
-        self->entries++;
-        return new_node->value;
-    }
-
-    while (true) {
-      if (node->next == NULL) {
-        node->next = new_node;
-        self->entries++;
-        break;
-      }
-      node = node->next;
-    }
-    return new_node->value;
-  }
-
   uint32_t idx = (self->hash)(key) % self->n_buckets;
-  struct hash_map_bucket bucket = self->buckets[idx];
-  struct linked_list_node *node = bucket.root;
+  struct hash_map_bucket *bucket = &self->buckets[idx];
+  struct linked_list_node *prev_node = bucket->root;
+  struct linked_list_node *node = bucket->root;
   while (node != NULL) {
     if (self->compare(key, (void *)node->key))
       return (void *)node->value;
+
+    prev_node = node;
     node = node->next;
   }
 
-  UNREACHABLE();
+  char *key_data = malloc_checked(key_size);
+  memcpy(key_data, key, key_size);
+  char *value_data = malloc_checked(value_size);
+  memcpy(value_data, value, value_size);
+  struct linked_list_node *new_node = linked_list_new(key_data, value_data);
+
+  char *new_value = new_node->value;
+
+  if (prev_node == NULL)
+    bucket->root = new_node;
+  else
+    prev_node->next = new_node;
+
+  self->entries++;
+
+  double load_factor = (double)self->entries / (double)self->n_buckets;
+  if (load_factor > HASH_MAP_THRESHOLD) {
+    hash_map_rehash(self, self->n_buckets);
+  }
+  return new_value;
 }
 
 void *hash_map_get(struct hash_map *self, void *key) {

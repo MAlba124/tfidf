@@ -7,29 +7,22 @@
 
 #include "hash_map.h"
 
-uint64_t hash(const void *key) {
-  const char *str = key;
-  uint64_t sum = 0;
-  for (size_t i = 0; i < strlen(key); i++) {
-    sum += str[i];
+#define test(testfn) testfn();                  \
+    printf("[+] %s passed\n", #testfn);
+
+void hash_map_print_char_star_int(struct hash_map *map) {
+  printf("Entries in map: %li\n", map->entries);
+  for (size_t i = 0; i < map->n_buckets; i++) {
+    struct linked_list_node *node = map->buckets[i].root;
+    while (node) {
+      printf("\t(bucket) %li : (key) %s : (value) %i\n", i, node->key, *(int *)node->value);
+      node = node->next;
+    }
   }
-  return sum;
 }
 
-bool compare(const void *vlhs, const void *vrhs) {
-  const char *lhs = vlhs;
-  const char *rhs = vrhs;
-  const size_t lhs_len = strlen(lhs);
-  const size_t rhs_len = strlen(rhs);
-
-  if (lhs_len != rhs_len)
-    return false;
-
-  return strcmp(lhs, rhs) == 0;
-}
-
-int main() {
-  struct hash_map map = hash_map_new_with_cap(3, hash, compare);
+void test_hash_map_basic_inser_get() {
+  struct hash_map map = hash_map_new_with_cap(3, hash_map_hash_char_star, hash_map_compare_char_star);
   int a=1, b=2, c=3, d=4, e=5;
   hash_map_insert(&map, "key1", &a, 5, sizeof(int));
   hash_map_insert(&map, "key2", &b, 5, sizeof(int));
@@ -52,6 +45,10 @@ int main() {
   assert(*(int *)hash_map_get(&map, "key5") == e);
 
   hash_map_free(&map);
+}
+
+int main() {
+  test(test_hash_map_basic_inser_get);
 
   return 0;
 }
