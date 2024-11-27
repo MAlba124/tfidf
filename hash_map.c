@@ -62,17 +62,6 @@ static inline void free_buckets_shallow(struct hash_map_bucket *buckets, size_t 
   free(buckets);
 }
 
-/* static void internal_hash_map_print_char_star_int(struct hash_map *map) { */
-/*   printf("INTERNAL Entries in map: %li\n", map->entries); */
-/*   for (size_t i = 0; i < map->n_buckets; i++) { */
-/*     struct linked_list_node *node = map->buckets[i].root; */
-/*     while (node) { */
-/*       printf("\t## (bucket) %li : (key) %s : (value) %i\n", i, node->key, *(int *)node->value); */
-/*       node = node->next; */
-/*     } */
-/*   } */
-/* } */
-
 static inline void hash_map_rehash(struct hash_map *self, size_t increase) {
   struct hash_map_bucket *old = self->buckets;
   size_t old_n_buckets = self->n_buckets;
@@ -133,7 +122,6 @@ static inline void hash_map_insert_no_copy(struct hash_map *self, void *key,
   }
 }
 
-// TODO: fix (broken, see valgrind)
 void hash_map_insert(struct hash_map *self, void *key, void *value,
                      size_t key_size, size_t value_size) {
   uint32_t idx = (self->hash)(key) % self->n_buckets;

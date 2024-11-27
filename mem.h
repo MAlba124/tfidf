@@ -11,7 +11,7 @@ inline void *malloc_checked(size_t size) {
   return ptr;
 }
 
-inline void *realloc_checked(void *ptr, size_t size) {
+static inline void *realloc_checked(void *ptr, size_t size) {
   void *newptr = realloc(ptr, size);
   assert(newptr);
   return newptr;
