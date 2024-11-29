@@ -1,4 +1,3 @@
-// TODO: shrink main function
 // TODO: cli options to make this a complete tool
 // TODO: write more extensible tests
 // TODO: test agains real life tf-idf and cosine similarity tests
@@ -24,12 +23,6 @@ struct search_result {
   char *src;
   float score;
 };
-
-static uint32_t hash_uint32_t(const void *key) { return *(uint32_t *)key; }
-
-static bool compare_uint32_t(const void *lhs, const void *rhs) {
-  return *(uint32_t *)lhs == *(uint32_t *)rhs;
-}
 
 static inline char *parse_next_element_in_str(char *str) {
   if (*str == '\0')
@@ -59,6 +52,40 @@ static inline char *parse_next_element_in_str(char *str) {
   return read;
 }
 
+static inline struct hash_map_u32f
+create_tf_map(struct tokenizer *tokizer, struct hash_map_u32f *idf, char *src) {
+  struct hash_map_u32f corpus_map = hash_map_u32f_new_with_cap(32);
+
+  char *term_element = src;
+  char *tmp;
+
+  float corpus_length = 0;
+  float most_freq = 0.0;
+  while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
+    if (*term_element != '\0') {
+      uint32_t tok = tokenizer_add(tokizer, term_element);
+      float *tok_tf = hash_map_u32f_get_or_insert(&corpus_map, tok, 0.0);
+      hash_map_u32f_insert(idf, tok, 1.0);
+      (*tok_tf)++;
+      if (*tok_tf > most_freq)
+        most_freq = *tok_tf;
+      corpus_length++;
+    }
+    term_element = tmp;
+  }
+
+  // Calculate TF
+  for (size_t i = 0; i < corpus_map.n_buckets; i++) {
+    struct linked_list_node_u32f *nod = corpus_map.buckets[i].root;
+    while (nod) {
+      nod->value /= corpus_length;
+      nod = nod->next;
+    }
+  }
+
+  return corpus_map;
+}
+
 int main() {
   struct skvs_reader corpus_reader =
       skvs_reader_new("reddit_btc_test/comments.skvs");
@@ -72,55 +99,21 @@ int main() {
   struct array_list corpus = array_list_new(100000);
   struct tokenizer tokizer = tokenizer_new();
   struct hash_map_u32f idf = hash_map_u32f_new();
-  struct skvs_pair pair;
   float entries = 0;
 
   size_t print_counter = 0;
   time_t start_time = time(NULL);
-  float zero = 0.0;
-  float one = 1.0;
-
   while (true) {
+    struct skvs_pair pair;
     skvs_reader_next_pair(&corpus_reader, &pair, true);
     if (!skvs_pair_ok(&pair))
       break;
 
-    struct hash_map_u32f corpus_map = hash_map_u32f_new_with_cap(32);
-
-    char *term_element = pair.value;
-    char *tmp;
-
-    float corpus_length = 0;
-    float most_freq = 0.0;
-    while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
-      if (*term_element != '\0') {
-        uint32_t tok = tokenizer_add(&tokizer, term_element);
-        float *tok_tf = hash_map_u32f_get_or_insert(&corpus_map, tok, 0.0);
-        hash_map_u32f_insert(&idf, tok, one);
-        (*tok_tf)++;
-        if (*tok_tf > most_freq)
-          most_freq = *tok_tf;
-        corpus_length++;
-      }
-      term_element = tmp;
-    }
-
+    array_list_push(&corpus,
+                    (struct array_list_pair){
+                        .location = pair.key,
+                        .map = create_tf_map(&tokizer, &idf, pair.value)});
     free(pair.value);
-
-    // Calculate TF
-    for (size_t i = 0; i < corpus_map.n_buckets; i++) {
-      struct linked_list_node_u32f *nod = corpus_map.buckets[i].root;
-      while (nod) {
-        nod->value /= corpus_length;
-        nod = nod->next;
-      }
-    }
-
-    struct array_list_pair corpus_all = {.location = pair.key,
-                                         .map = corpus_map};
-
-    /* array_list_push(&corpus, &corpus_all); */
-    array_list_push(&corpus, corpus_all);
 
     entries++;
     print_counter++;
@@ -154,7 +147,8 @@ int main() {
     for (size_t j = 0; j < doc->map.n_buckets; j++) {
       struct linked_list_node_u32f *node = doc->map.buckets[j].root;
       while (node != NULL) {
-        float *__idf = hash_map_u32f_get(&idf, node->key); // Assumes the idf exist
+        float *__idf =
+            hash_map_u32f_get(&idf, node->key); // Assumes the idf exist
         node->value *= *__idf;
         node = node->next;
       }
@@ -166,37 +160,14 @@ int main() {
     if (query == NULL)
       break;
 
-    uint32_t *tokens = malloc_checked(0);
-    struct hash_map query_tokens =
-        hash_map_new(hash_uint32_t, compare_uint32_t);
-    size_t n_tokens = 0;
-    size_t n_size = 0;
-
-    char *term_element = query;
-    char *tmp;
-    while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
-      if (*term_element != '\0') {
-        uint32_t *tok = tokenizer_get(&tokizer, term_element);
-        if (tok != NULL) {
-          float *tok_tf = (float *)hash_map_get_or_insert(
-              &query_tokens, tok, &zero, sizeof(uint32_t), sizeof(float));
-          if (*tok_tf == 0.0) {
-            n_tokens++;
-            tokens = realloc_checked(tokens, sizeof(uint32_t) * n_tokens);
-            tokens[n_tokens - 1] = *tok;
-          }
-          (*tok_tf)++;
-          n_size++;
-        }
-      }
-
-      term_element = tmp;
-    }
-
-    for (size_t j = 0; j < query_tokens.n_buckets; j++) {
-      struct linked_list_node *node = query_tokens.buckets[j].root;
-      while (node) {
-        *(float *)node->value /= n_size;
+    struct hash_map_u32f query_tokens = create_tf_map(&tokizer, &idf, query);
+    size_t n_tokens = query_tokens.entries;
+    uint32_t *tokens = malloc_checked(sizeof(uint32_t) * n_tokens);
+    size_t tokens_i = 0;
+    for (size_t i = 0; i < query_tokens.n_buckets; i++) {
+      struct linked_list_node_u32f *node = query_tokens.buckets[i].root;
+      while (node != NULL) {
+        tokens[tokens_i++] = node->key;
         node = node->next;
       }
     }
@@ -222,7 +193,7 @@ int main() {
       struct array_list_pair *doc = &corpus.data[i];
       for (size_t j = 0; j < n_tokens; j++) {
         float *tf_idf = hash_map_u32f_get(&doc->map, tokens[j]);
-        void *query_tf = hash_map_get(&query_tokens, &tokens[j]);
+        void *query_tf = hash_map_u32f_get(&query_tokens, tokens[j]);
         void *idfa = hash_map_u32f_get(&idf, tokens[j]);
         // Save elements if they intersect
         if (tf_idf != NULL && idfa != NULL && query_tf != NULL) {
@@ -260,7 +231,8 @@ int main() {
         if (top_10[j].score < top_10[lowest_idx].score)
           lowest_idx = j;
       if (top_10[lowest_idx].score < score)
-        top_10[lowest_idx] = (struct search_result) {.src = doc->location, .score = score};
+        top_10[lowest_idx] =
+            (struct search_result){.src = doc->location, .score = score};
     }
 
     if (!found_matching) {
@@ -295,7 +267,7 @@ int main() {
     }
 
   clean:
-    hash_map_free(&query_tokens);
+    hash_map_u32f_free(&query_tokens);
     free(tokens);
     free(query);
   }
