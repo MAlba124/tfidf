@@ -1,4 +1,3 @@
-// TODO: generic hash map with _Generic (might reduce the amount of allocations needed)
 // TODO: shrink main function
 // TODO: cli options to make this a complete tool
 // TODO: write more extensible tests
