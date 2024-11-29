@@ -15,6 +15,7 @@
             gcc
             gnumake
             valgrind
+            heaptrack
           ];
           buildInputs = with pkgs; [
             readline

@@ -6,7 +6,7 @@
 #include "hash_map.h"
 
 struct tokenizer {
-  struct hash_map map;
+  struct hash_map_cu32 map;
   uint32_t counter;
 };
 

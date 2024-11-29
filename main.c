@@ -21,18 +21,6 @@
 #include "skvs.h"
 #include "tokenizer.h"
 
-void hash_map_print_uint32_float(struct hash_map *map) {
-  printf("Entries in map: %li\n", map->entries);
-  for (size_t i = 0; i < map->n_buckets; i++) {
-    struct linked_list_node *node = map->buckets[i].root;
-    while (node) {
-      printf("\t(bucket) %li : (key) %i : (value) %f\n", i,
-             *(uint32_t *)node->key, *(float *)node->value);
-      node = node->next;
-    }
-  }
-}
-
 struct search_result {
   char *src;
   float score;
@@ -84,7 +72,7 @@ int main() {
 
   struct array_list corpus = array_list_new(100000);
   struct tokenizer tokizer = tokenizer_new();
-  struct hash_map idf = hash_map_new(hash_uint32_t, compare_uint32_t);
+  struct hash_map_u32f idf = hash_map_u32f_new();
   struct skvs_pair pair;
   float entries = 0;
 
@@ -98,7 +86,7 @@ int main() {
     if (!skvs_pair_ok(&pair))
       break;
 
-    struct hash_map corpus_map = hash_map_new(hash_uint32_t, compare_uint32_t);
+    struct hash_map_u32f corpus_map = hash_map_u32f_new_with_cap(32);
 
     char *term_element = pair.value;
     char *tmp;
@@ -108,9 +96,8 @@ int main() {
     while ((tmp = parse_next_element_in_str(term_element)) != NULL) {
       if (*term_element != '\0') {
         uint32_t tok = tokenizer_add(&tokizer, term_element);
-        float *tok_tf = (float *)hash_map_get_or_insert(
-            &corpus_map, &tok, &zero, sizeof(uint32_t), sizeof(float));
-        hash_map_insert(&idf, &tok, &one, sizeof(uint32_t), sizeof(float));
+        float *tok_tf = hash_map_u32f_get_or_insert(&corpus_map, tok, 0.0);
+        hash_map_u32f_insert(&idf, tok, one);
         (*tok_tf)++;
         if (*tok_tf > most_freq)
           most_freq = *tok_tf;
@@ -123,9 +110,9 @@ int main() {
 
     // Calculate TF
     for (size_t i = 0; i < corpus_map.n_buckets; i++) {
-      struct linked_list_node *nod = corpus_map.buckets[i].root;
+      struct linked_list_node_u32f *nod = corpus_map.buckets[i].root;
       while (nod) {
-        *(float *)nod->value /= corpus_length;
+        nod->value /= corpus_length;
         nod = nod->next;
       }
     }
@@ -133,7 +120,8 @@ int main() {
     struct array_list_pair corpus_all = {.location = pair.key,
                                          .map = corpus_map};
 
-    array_list_push(&corpus, &corpus_all);
+    /* array_list_push(&corpus, &corpus_all); */
+    array_list_push(&corpus, corpus_all);
 
     entries++;
     print_counter++;
@@ -153,10 +141,10 @@ int main() {
 
   // Calculate idf
   for (size_t i = 0; i < idf.n_buckets; i++) {
-    struct linked_list_node *node = idf.buckets[i].root;
+    struct linked_list_node_u32f *node = idf.buckets[i].root;
     while (node) {
-      float df = *(float *)node->value;
-      *(float *)node->value = log10f(entries / df);
+      float df = node->value;
+      node->value = log10f(entries / df);
       node = node->next;
     }
   }
@@ -165,10 +153,10 @@ int main() {
   for (size_t i = 0; i < corpus.size; i++) {
     struct array_list_pair *doc = &corpus.data[i];
     for (size_t j = 0; j < doc->map.n_buckets; j++) {
-      struct linked_list_node *node = doc->map.buckets[j].root;
+      struct linked_list_node_u32f *node = doc->map.buckets[j].root;
       while (node != NULL) {
-        float __idf = *(float *)hash_map_get(&idf, node->key); // Assumes the idf exist
-        *(float *)node->value *= __idf;
+        float *__idf = hash_map_u32f_get(&idf, node->key); // Assumes the idf exist
+        node->value *= *__idf;
         node = node->next;
       }
     }
@@ -234,9 +222,9 @@ int main() {
 
       struct array_list_pair *doc = &corpus.data[i];
       for (size_t j = 0; j < n_tokens; j++) {
-        void *tf_idf = hash_map_get(&doc->map, &tokens[j]);
+        float *tf_idf = hash_map_u32f_get(&doc->map, tokens[j]);
         void *query_tf = hash_map_get(&query_tokens, &tokens[j]);
-        void *idfa = hash_map_get(&idf, &tokens[j]);
+        void *idfa = hash_map_u32f_get(&idf, tokens[j]);
         // Save elements if they intersect
         if (tf_idf != NULL && idfa != NULL && query_tf != NULL) {
           document_vector[vector_idx] = *(float *)tf_idf;
@@ -313,7 +301,7 @@ int main() {
     free(query);
   }
 
-  hash_map_free(&idf);
+  hash_map_u32f_free(&idf);
   array_list_free(&corpus);
   tokenizer_free(&tokizer);
 

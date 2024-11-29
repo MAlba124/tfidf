@@ -19,20 +19,19 @@ struct array_list array_list_new(size_t cap) {
 void array_list_free(struct array_list *self) {
   for (size_t i = 0; i < self->size; i++) {
     free(self->data[i].location);
-    hash_map_free(&self->data[i].map);
+    hash_map_u32f_free(&self->data[i].map);
   }
   free(self->data);
   self->size = self->cap = 0;
 }
 
-void array_list_push(struct array_list *self, struct array_list_pair *element) {
+void array_list_push(struct array_list *self, struct array_list_pair element) {
   if (self->size >= self->cap) {
     self->data = realloc_checked(self->data, sizeof(struct array_list_pair) * self->cap * 2);
     self->cap += ARRAYLIST_EXTEND_WITH;
   }
 
-  memcpy(&self->data[self->size], element, sizeof(struct array_list_pair));
-  self->size++;
+  self->data[self->size++] = element;
 }
 
 void array_list_shrink_to_fit(struct array_list *self) {
