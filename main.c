@@ -1,6 +1,5 @@
 // TODO: write more extensible tests
 // TODO: test against real life tf-idf and cosine similarity tests
-// TODO: allow for more results than just 10
 // TODO: profile to get better indicators for whats needing performance work
 
 #include <ctype.h>
