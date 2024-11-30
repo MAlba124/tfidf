@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -Werror -pipe -ggdb -std=c99
 # CFLAGS = -Wall -Wextra -Werror -pipe -O3 -march=native -std=c99
 CLINKFLAGS = -lm -lreadline
 
-OBJS = hash_map.o tokenizer.o skvs.o arraylist.o
+OBJS = hash_map.o tokenizer.o skvs.o arraylist.o arena.o
 
 # valgrind --leak-check=full --show-leak-kinds=all -s ./tfidf
 

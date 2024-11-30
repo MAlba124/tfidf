@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include "arena.h"
+
 #define HASH_MAP_DEFAULT_BUCKET_COUNT 512
 #define HASH_MAP_THRESHOLD 0.75
 
@@ -58,19 +60,20 @@ uint32_t *hash_map_cu32_get_or_insert(struct hash_map_cu32 *self, char *key, uin
 bool hash_map_cu32_contains(struct hash_map_cu32 *self, char *key);
 void hash_map_cu32_free(struct hash_map_cu32 *self);
 
-// hash map for key:uint32_t and value:float
-struct linked_list_node_u32f {
+struct hash_map_bucket_node_u32f {
   uint32_t key;
   float value;
-  struct linked_list_node_u32f *next;
+  struct hash_map_bucket_node_u32f *next;
 };
 
 struct hash_map_bucket_u32f {
-  struct linked_list_node_u32f *root;
+  size_t n_nodes;
+  struct hash_map_bucket_node_u32f *root;
 };
 
 struct hash_map_u32f {
   struct hash_map_bucket_u32f *buckets;
+  struct arena a;
   size_t entries;
   size_t n_buckets;
 };

@@ -1,5 +1,4 @@
 // TODO: test against real life tf-idf and cosine similarity tests
-// TODO: profile to get better indicators for whats needing performance work
 
 #include <ctype.h>
 #include <math.h>
@@ -81,7 +80,7 @@ create_tf_map(struct tokenizer *tokizer, struct hash_map_u32f *idf, char *src) {
 
   // Calculate TF
   for (size_t i = 0; i < corpus_map.n_buckets; i++) {
-    struct linked_list_node_u32f *nod = corpus_map.buckets[i].root;
+    struct hash_map_bucket_node_u32f *nod = corpus_map.buckets[i].root;
     while (nod) {
       nod->value /= corpus_length;
       nod = nod->next;
@@ -202,7 +201,7 @@ static void single_search(struct array_list *corpus, struct tokenizer *tokizer,
   uint32_t *tokens = malloc_checked(sizeof(uint32_t) * n_tokens);
   size_t tokens_i = 0;
   for (size_t i = 0; i < query_tokens.n_buckets; i++) {
-    struct linked_list_node_u32f *node = query_tokens.buckets[i].root;
+    struct hash_map_bucket_node_u32f *node = query_tokens.buckets[i].root;
     while (node != NULL) {
       tokens[tokens_i++] = node->key;
       node = node->next;
@@ -323,6 +322,11 @@ int main(int argc, char **argv) {
     if (!skvs_pair_ok(&pair))
       break;
 
+    // TODO: Might want to shrink the maps arena. This involves realloc()ing so
+    // only required memory is used + calculating the offsets for the node
+    // addresses (should be a simple offset = old_ptr - new_ptr, then update the
+    // *nodes and *next)
+
     array_list_push(&corpus,
                     (struct array_list_pair){
                         .location = pair.key,
@@ -347,7 +351,7 @@ int main(int argc, char **argv) {
 
   // Calculate idf
   for (size_t i = 0; i < idf.n_buckets; i++) {
-    struct linked_list_node_u32f *node = idf.buckets[i].root;
+    struct hash_map_bucket_node_u32f *node = idf.buckets[i].root;
     while (node) {
       float df = node->value;
       node->value = log10f(entries / df);
@@ -359,7 +363,7 @@ int main(int argc, char **argv) {
   for (size_t i = 0; i < corpus.size; i++) {
     struct array_list_pair *doc = &corpus.data[i];
     for (size_t j = 0; j < doc->map.n_buckets; j++) {
-      struct linked_list_node_u32f *node = doc->map.buckets[j].root;
+      struct hash_map_bucket_node_u32f *node = doc->map.buckets[j].root;
       while (node != NULL) {
         float *__idf =
             hash_map_u32f_get(&idf, node->key); // Assumes the idf exist
