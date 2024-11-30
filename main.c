@@ -1,7 +1,7 @@
-// TODO: cli options to make this a complete tool
 // TODO: write more extensible tests
-// TODO: test agains real life tf-idf and cosine similarity tests
+// TODO: test against real life tf-idf and cosine similarity tests
 // TODO: allow for more results than just 10
+// TODO: profile to get better indicators for whats needing performance work
 
 #include <ctype.h>
 #include <math.h>
@@ -22,6 +22,13 @@
 struct search_result {
   char *src;
   float score;
+};
+
+struct arguments {
+  char *src_file;
+  bool interactive;
+  char *query;
+  size_t n_results;
 };
 
 static inline char *parse_next_element_in_str(char *str) {
@@ -86,15 +93,224 @@ create_tf_map(struct tokenizer *tokizer, struct hash_map_u32f *idf, char *src) {
   return corpus_map;
 }
 
-int main() {
-  struct skvs_reader corpus_reader =
-      skvs_reader_new("reddit_btc_test/comments.skvs");
-  if (corpus_reader.file == NULL) {
-    printf("Could not open reddit_btc_test/comments.skvs\n");
-    return 1;
+static inline void sort_and_print_results(struct search_result *results,
+                                          size_t count) {
+  bool swapped = true;
+  size_t n = count;
+  // Sort the results
+  while (swapped) {
+    swapped = false;
+    for (size_t i = 1; i < n; i++) {
+      if (results[i - 1].score > results[i].score) {
+        struct search_result swapee = results[i - 1];
+        results[i - 1] = results[i];
+        results[i] = swapee;
+        swapped = true;
+      }
+    }
+    n--;
   }
 
-  printf("Opened corpus at reddit_btc_test/comments.skvs\n");
+  for (size_t i = count; i > 0; i--) {
+    float s = results[i - 1].score;
+    if (s > 0.0)
+      printf("%2ld. | Score: %s%.0f%%\033[0m URL: %s\n", count - i + 1,
+             s >= 0.75   ? "\033[32m"
+             : s >= 0.25 ? "\033[33m"
+                         : "\033[31m",
+             s * 100.0, results[i - 1].src);
+  }
+}
+
+struct arguments parse_args(int argc, char **argv) {
+  if (argc < 2) {
+    printf("Usage: %s [OPTION] -s [FILE]\n", argv[0]);
+    exit(1);
+  }
+
+  struct arguments args = {
+    .src_file = NULL,
+    .interactive = false,
+    .query = NULL,
+    .n_results = 10
+  };
+
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-i") == 0) {
+      if (args.query != NULL) {
+        printf("%s: Incompatible options '-i' and '-q'\n", argv[0]);
+        exit(1);
+      }
+      args.interactive = true;
+    } else if (strcmp(argv[i], "--help") == 0) {
+      printf("soon\n");
+      exit(0);
+    } else if (strcmp(argv[i], "-s") == 0) {
+      if (i >= argc - 1) {
+        printf("%s: Option '-s' requires an argument\n", argv[0]);
+        exit(1);
+      }
+      args.src_file = argv[++i];
+    } else if (strcmp(argv[i], "-q") == 0) {
+      if (i >= argc - 1) {
+        printf("%s: Option '-q' requires an argument\n", argv[0]);
+        exit(1);
+      }
+      if (args.interactive) {
+        printf("%s: Incompatible options '-q' and '-i'\n", argv[0]);
+        exit(1);
+      }
+      args.query = argv[++i];
+    } else if (strcmp(argv[i], "-n") == 0) {
+      if (i >= argc - 1) {
+        printf("%s: Option '-n' requires an argument\n", argv[0]);
+        exit(1);
+      }
+      char *eptr = NULL;
+      long n = strtol(argv[++i], &eptr, 10);
+      if (*eptr != '\0') {
+        printf("%s: Could not convert number of results\n", argv[0]);
+        exit(1);
+      }
+      args.n_results = (size_t)n;
+    } else {
+      printf("%s: Invalid option '%s'\n", argv[0], argv[i]);
+      exit(1);
+    }
+  }
+
+  if (!args.src_file) {
+    printf("%s: Missing corpus\n", argv[0]);
+    exit(1);
+  }
+
+  if (!args.n_results) {
+    exit(0);
+  }
+
+  if (!(!args.interactive ^ !args.query)) {
+    printf("%s: Missing mode of operation('-i' or '-q')\n", argv[0]);
+    exit(1);
+  }
+
+  return args;
+}
+
+static void single_search(struct array_list *corpus, struct tokenizer *tokizer,
+                          struct hash_map_u32f *idf,
+                          char *query, size_t n_results) {
+  struct hash_map_u32f query_tokens = create_tf_map(tokizer, idf, query);
+  size_t n_tokens = query_tokens.entries;
+  uint32_t *tokens = malloc_checked(sizeof(uint32_t) * n_tokens);
+  size_t tokens_i = 0;
+  for (size_t i = 0; i < query_tokens.n_buckets; i++) {
+    struct linked_list_node_u32f *node = query_tokens.buckets[i].root;
+    while (node != NULL) {
+      tokens[tokens_i++] = node->key;
+      node = node->next;
+    }
+  }
+
+  struct search_result top_10[n_results];
+
+  if (n_tokens == 0) {
+    printf("No results\n");
+    goto clean;
+  }
+
+  for (size_t i = 0; i < n_results; i++) {
+    top_10[i].score = 0.0;
+    top_10[i].src = NULL;
+  }
+
+  bool found_matching = false;
+
+  for (size_t i = 0; i < corpus->size; i++) {
+    float document_vector[n_tokens];
+    float query_vector[n_tokens];
+    size_t vector_idx = 0;
+
+    struct array_list_pair *doc = &corpus->data[i];
+    for (size_t j = 0; j < n_tokens; j++) {
+      float *tf_idf = hash_map_u32f_get(&doc->map, tokens[j]);
+      void *query_tf = hash_map_u32f_get(&query_tokens, tokens[j]);
+      void *idfa = hash_map_u32f_get(idf, tokens[j]);
+      // Save elements if they intersect
+      if (tf_idf != NULL && idfa != NULL && query_tf != NULL) {
+        document_vector[vector_idx] = *(float *)tf_idf;
+        query_vector[vector_idx++] = *(float *)query_tf * *(float *)idfa;
+        found_matching = true;
+      }
+    }
+
+    if (vector_idx == 0)
+      continue;
+
+    // Cosine similarity
+    float score = 0.0;
+    float dot_prod = 0.0;
+    float magn_prod = 0.0;
+    float doc_norm = 0.0;
+    float query_norm = 0.0;
+    for (size_t j = 0; j < vector_idx; j++) {
+      dot_prod += document_vector[j] * query_vector[j];
+      query_norm += query_vector[j] * query_vector[j];
+      doc_norm += document_vector[j] * document_vector[j];
+    }
+    query_norm = sqrtf(query_norm);
+    doc_norm = sqrtf(doc_norm);
+    magn_prod = doc_norm * query_norm;
+    if (magn_prod != 0.0) {
+      // Multiply by the percentage of the intersected elements
+      score = (dot_prod / magn_prod) * ((float)vector_idx / (float)n_tokens);
+    }
+
+    // Insert the found score to the top10 list if it belongs there
+    size_t lowest_idx = 0;
+    for (size_t j = 1; j < n_results; j++)
+      if (top_10[j].score < top_10[lowest_idx].score)
+        lowest_idx = j;
+    if (top_10[lowest_idx].score < score)
+      top_10[lowest_idx] =
+          (struct search_result){.src = doc->location, .score = score};
+  }
+
+  if (!found_matching) {
+    printf("No results\n");
+    goto clean;
+  }
+
+  sort_and_print_results((struct search_result *)&top_10, n_results);
+
+clean:
+  hash_map_u32f_free(&query_tokens);
+  free(tokens);
+}
+
+static void interactive_search(struct array_list *corpus,
+                               struct tokenizer *tokizer,
+                               struct hash_map_u32f *idf,
+                               size_t n_results) {
+  while (true) {
+    char *query = readline("query > ");
+    if (query == NULL)
+      break;
+
+    single_search(corpus, tokizer, idf, query, n_results);
+
+    free(query);
+  }
+}
+
+int main(int argc, char **argv) {
+  struct arguments args = parse_args(argc, argv);
+
+  struct skvs_reader corpus_reader =
+      skvs_reader_new(args.src_file);
+  if (corpus_reader.file == NULL) {
+    printf("Could not open '%s'\n", args.src_file);
+    return 1;
+  }
 
   struct array_list corpus = array_list_new(100000);
   struct tokenizer tokizer = tokenizer_new();
@@ -155,122 +371,10 @@ int main() {
     }
   }
 
-  while (true) {
-    char *query = readline("query > ");
-    if (query == NULL)
-      break;
-
-    struct hash_map_u32f query_tokens = create_tf_map(&tokizer, &idf, query);
-    size_t n_tokens = query_tokens.entries;
-    uint32_t *tokens = malloc_checked(sizeof(uint32_t) * n_tokens);
-    size_t tokens_i = 0;
-    for (size_t i = 0; i < query_tokens.n_buckets; i++) {
-      struct linked_list_node_u32f *node = query_tokens.buckets[i].root;
-      while (node != NULL) {
-        tokens[tokens_i++] = node->key;
-        node = node->next;
-      }
-    }
-
-    if (n_tokens == 0) {
-      printf("No results\n");
-      goto clean;
-    }
-
-    struct search_result top_10[10];
-    for (size_t i = 0; i < 10; i++) {
-      top_10[i].score = 0.0;
-      top_10[i].src = NULL;
-    }
-
-    bool found_matching = false;
-
-    for (size_t i = 0; i < corpus.size; i++) {
-      float document_vector[n_tokens];
-      float query_vector[n_tokens];
-      size_t vector_idx = 0;
-
-      struct array_list_pair *doc = &corpus.data[i];
-      for (size_t j = 0; j < n_tokens; j++) {
-        float *tf_idf = hash_map_u32f_get(&doc->map, tokens[j]);
-        void *query_tf = hash_map_u32f_get(&query_tokens, tokens[j]);
-        void *idfa = hash_map_u32f_get(&idf, tokens[j]);
-        // Save elements if they intersect
-        if (tf_idf != NULL && idfa != NULL && query_tf != NULL) {
-          document_vector[vector_idx] = *(float *)tf_idf;
-          query_vector[vector_idx++] = *(float *)query_tf * *(float *)idfa;
-          found_matching = true;
-        }
-      }
-
-      if (vector_idx == 0)
-        continue;
-
-      // Cosine similarity
-      float score = 0.0;
-      float dot_prod = 0.0;
-      float magn_prod = 0.0;
-      float doc_norm = 0.0;
-      float query_norm = 0.0;
-      for (size_t j = 0; j < vector_idx; j++) {
-        dot_prod += document_vector[j] * query_vector[j];
-        query_norm += query_vector[j] * query_vector[j];
-        doc_norm += document_vector[j] * document_vector[j];
-      }
-      query_norm = sqrtf(query_norm);
-      doc_norm = sqrtf(doc_norm);
-      magn_prod = doc_norm * query_norm;
-      if (magn_prod != 0.0) {
-        // Multiply by the percentage of the intersected elements
-        score = (dot_prod / magn_prod) * ((float)vector_idx / (float)n_tokens);
-      }
-
-      // Insert the found score to the top10 list if it belongs there
-      size_t lowest_idx = 0;
-      for (size_t j = 1; j < 10; j++)
-        if (top_10[j].score < top_10[lowest_idx].score)
-          lowest_idx = j;
-      if (top_10[lowest_idx].score < score)
-        top_10[lowest_idx] =
-            (struct search_result){.src = doc->location, .score = score};
-    }
-
-    if (!found_matching) {
-      printf("No results\n");
-      goto clean;
-    }
-
-    bool swapped = true;
-    size_t n = 10;
-    // Sort the results
-    while (swapped) {
-      swapped = false;
-      for (size_t i = 1; i < n; i++) {
-        if (top_10[i - 1].score > top_10[i].score) {
-          struct search_result swapee = top_10[i - 1];
-          top_10[i - 1] = top_10[i];
-          top_10[i] = swapee;
-          swapped = true;
-        }
-      }
-      n--;
-    }
-
-    for (size_t i = 10; i > 0; i--) {
-      float s = top_10[i - 1].score;
-      if (s > 0.0)
-        printf("%2ld. | Score: %s%.0f%%\033[0m URL: %s\n", 10 - i + 1,
-               s >= 0.75   ? "\033[32m"
-               : s >= 0.25 ? "\033[33m"
-                           : "\033[31m",
-               s * 100.0, top_10[i - 1].src);
-    }
-
-  clean:
-    hash_map_u32f_free(&query_tokens);
-    free(tokens);
-    free(query);
-  }
+  if (args.interactive)
+    interactive_search(&corpus, &tokizer, &idf, args.n_results);
+  else
+    single_search(&corpus, &tokizer, &idf, args.query, args.n_results);
 
   hash_map_u32f_free(&idf);
   array_list_free(&corpus);
