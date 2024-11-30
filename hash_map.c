@@ -1,9 +1,9 @@
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "arena.h"
 #include "hash_map.h"
@@ -510,8 +510,9 @@ static inline void hash_map_u32f_rehash(struct hash_map_u32f *self,
   struct arena old_a = self->a;
   self->buckets = new_buckets_u32f(self->n_buckets + increase);
   self->n_buckets += increase;
-  self->a = arena_new(sizeof(struct hash_map_bucket_node_u32f),
-                      1 + (size_t)ceilf((float)self->n_buckets * HASH_MAP_THRESHOLD));
+  self->a =
+      arena_new(sizeof(struct hash_map_bucket_node_u32f),
+                1 + (size_t)ceilf((float)self->n_buckets * HASH_MAP_THRESHOLD));
   self->entries = 0;
 
   for (size_t i = 0; i < old_n_buckets; i++) {
@@ -596,7 +597,8 @@ float *hash_map_u32f_get(struct hash_map_u32f *self, uint32_t key) {
   return NULL;
 }
 
-float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key, float value) {
+float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key,
+                                   float value) {
   uint32_t idx = key % self->n_buckets;
   struct hash_map_bucket_u32f *bucket = &self->buckets[idx];
   struct hash_map_bucket_node_u32f *prev_node = bucket->root;

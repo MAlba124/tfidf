@@ -1,20 +1,18 @@
-#include <string.h>
 #include <assert.h>
+#include <string.h>
 
-#include "tokenizer.h"
 #include "hash_map.h"
+#include "tokenizer.h"
 
 struct tokenizer tokenizer_new() {
   struct tokenizer t = {
-    .map = hash_map_cu32_new_with_cap(1024*2),
-    .counter = 0,
+      .map = hash_map_cu32_new_with_cap(1024 * 2),
+      .counter = 0,
   };
   return t;
 }
 
-void tokenizer_free(struct tokenizer *self) {
-  hash_map_cu32_free(&self->map);
-}
+void tokenizer_free(struct tokenizer *self) { hash_map_cu32_free(&self->map); }
 
 uint32_t tokenizer_add(struct tokenizer *self, char *dat) {
   void *possible_token = hash_map_cu32_get(&self->map, dat);

@@ -1,18 +1,19 @@
-#include <stdio.h>
-#include <stdint.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #include "hash_map.h"
 
-#define test(testfn) testfn();                  \
-    printf("\033[32m[+]\033[0m %s \033[32mpassed\033[0m\n", #testfn);
+#define test(testfn)                                                           \
+  testfn();                                                                    \
+  printf("\033[32m[+]\033[0m %s \033[32mpassed\033[0m\n", #testfn);
 
 void test_hash_map_cf_insert_get() {
   struct hash_map_cf map = hash_map_cf_new_with_cap(3);
-  float a=1.1, b=2.2, c=3.3, d=4.4, e=5.5;
+  float a = 1.1, b = 2.2, c = 3.3, d = 4.4, e = 5.5;
   hash_map_cf_insert(&map, "key1", a, 5);
   hash_map_cf_insert(&map, "key2", b, 5);
   hash_map_cf_insert(&map, "key3", c, 5);
@@ -58,7 +59,7 @@ void test_hash_map_cf_insert_get_big() {
 
 void test_hash_map_cu32_insert_get() {
   struct hash_map_cu32 map = hash_map_cu32_new_with_cap(3);
-  uint32_t a=1, b=2, c=3, d=4, e=5;
+  uint32_t a = 1, b = 2, c = 3, d = 4, e = 5;
   hash_map_cu32_insert(&map, "key1", a, 5);
   hash_map_cu32_insert(&map, "key2", b, 5);
   hash_map_cu32_insert(&map, "key3", c, 5);
@@ -104,7 +105,7 @@ void test_hash_map_cu32_insert_get_big() {
 
 void test_hash_map_u32f_insert_get() {
   struct hash_map_u32f map = hash_map_u32f_new_with_cap(3);
-  float a=1.1, b=2.2, c=3.3, d=4.4, e=5.5;
+  float a = 1.1, b = 2.2, c = 3.3, d = 4.4, e = 5.5;
   hash_map_u32f_insert(&map, 1, a);
   hash_map_u32f_insert(&map, 2, b);
   hash_map_u32f_insert(&map, 3, c);

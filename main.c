@@ -1,3 +1,4 @@
+// TODO: use arenas for all the maps :===)))))
 // TODO: test against real life tf-idf and cosine similarity tests
 
 #include <ctype.h>
@@ -126,11 +127,7 @@ struct arguments parse_args(int argc, char **argv) {
   }
 
   struct arguments args = {
-    .src_file = NULL,
-    .interactive = false,
-    .query = NULL,
-    .n_results = 10
-  };
+      .src_file = NULL, .interactive = false, .query = NULL, .n_results = 10};
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-i") == 0) {
@@ -194,8 +191,8 @@ struct arguments parse_args(int argc, char **argv) {
 }
 
 static void single_search(struct array_list *corpus, struct tokenizer *tokizer,
-                          struct hash_map_u32f *idf,
-                          char *query, size_t n_results) {
+                          struct hash_map_u32f *idf, char *query,
+                          size_t n_results) {
   struct hash_map_u32f query_tokens = create_tf_map(tokizer, idf, query);
   size_t n_tokens = query_tokens.entries;
   uint32_t *tokens = malloc_checked(sizeof(uint32_t) * n_tokens);
@@ -286,8 +283,7 @@ clean:
 
 static void interactive_search(struct array_list *corpus,
                                struct tokenizer *tokizer,
-                               struct hash_map_u32f *idf,
-                               size_t n_results) {
+                               struct hash_map_u32f *idf, size_t n_results) {
   while (true) {
     char *query = readline("query > ");
     if (query == NULL)
@@ -302,8 +298,7 @@ static void interactive_search(struct array_list *corpus,
 int main(int argc, char **argv) {
   struct arguments args = parse_args(argc, argv);
 
-  struct skvs_reader corpus_reader =
-      skvs_reader_new(args.src_file);
+  struct skvs_reader corpus_reader = skvs_reader_new(args.src_file);
   if (corpus_reader.file == NULL) {
     printf("Could not open '%s'\n", args.src_file);
     return 1;

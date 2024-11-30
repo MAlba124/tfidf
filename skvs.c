@@ -1,6 +1,6 @@
 #include <netinet/in.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "mem.h"
 #include "skvs.h"
@@ -10,11 +10,10 @@ struct skvs_reader skvs_reader_new(char *path) {
   return reader;
 }
 
-void skvs_reader_free(struct skvs_reader *self) {
-  fclose(self->file);
-}
+void skvs_reader_free(struct skvs_reader *self) { fclose(self->file); }
 
-void skvs_reader_next_pair(struct skvs_reader *self, struct skvs_pair *pair, bool null_term) {
+void skvs_reader_next_pair(struct skvs_reader *self, struct skvs_pair *pair,
+                           bool null_term) {
   pair->key_len = 0;
   pair->key = NULL;
   pair->value_len = 0;
@@ -28,7 +27,8 @@ void skvs_reader_next_pair(struct skvs_reader *self, struct skvs_pair *pair, boo
   pair->key = malloc_checked(pair->key_len + (null_term ? 1 : 0));
   if (fread(pair->key, 1, pair->key_len, self->file) < pair->key_len)
     return;
-  if (null_term) pair->key[pair->key_len] = '\0';
+  if (null_term)
+    pair->key[pair->key_len] = '\0';
 
   if (fread(&lenbuf, 1, 4, self->file) < 4)
     return;
@@ -37,7 +37,8 @@ void skvs_reader_next_pair(struct skvs_reader *self, struct skvs_pair *pair, boo
   pair->value = malloc_checked(pair->value_len + (null_term ? 1 : 0));
   if (fread(pair->value, 1, pair->value_len, self->file) < pair->value_len)
     return;
-  if (null_term) pair->value[pair->value_len] = '\0';
+  if (null_term)
+    pair->value[pair->value_len] = '\0';
 }
 
 bool skvs_pair_ok(struct skvs_pair *self) {
@@ -48,6 +49,8 @@ bool skvs_pair_ok(struct skvs_pair *self) {
 void skvs_pair_free(struct skvs_pair *self) {
   self->key_len = 0;
   self->value_len = 0;
-  if (self->key) free(self->key);
-  if (self->value) free(self->value);
+  if (self->key)
+    free(self->key);
+  if (self->value)
+    free(self->value);
 }

@@ -1,9 +1,9 @@
 #ifndef __TFIDF_H_MAP
 #define __TFIDF_H_MAP
 
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "arena.h"
 
@@ -29,9 +29,11 @@ struct hash_map_cf {
 
 struct hash_map_cf hash_map_cf_new();
 struct hash_map_cf hash_map_cf_new_with_cap(size_t cap);
-void hash_map_cf_insert(struct hash_map_cf *self, char *key, float value, size_t key_size);
+void hash_map_cf_insert(struct hash_map_cf *self, char *key, float value,
+                        size_t key_size);
 float *hash_map_cf_get(struct hash_map_cf *self, char *key);
-float *hash_map_cf_get_or_insert(struct hash_map_cf *self, char *key, float value, size_t key_size);
+float *hash_map_cf_get_or_insert(struct hash_map_cf *self, char *key,
+                                 float value, size_t key_size);
 bool hash_map_cf_contains(struct hash_map_cf *self, char *key);
 void hash_map_cf_free(struct hash_map_cf *self);
 
@@ -54,9 +56,11 @@ struct hash_map_cu32 {
 
 struct hash_map_cu32 hash_map_cu32_new();
 struct hash_map_cu32 hash_map_cu32_new_with_cap(size_t cap);
-void hash_map_cu32_insert(struct hash_map_cu32 *self, char *key, uint32_t value, size_t key_size);
+void hash_map_cu32_insert(struct hash_map_cu32 *self, char *key, uint32_t value,
+                          size_t key_size);
 uint32_t *hash_map_cu32_get(struct hash_map_cu32 *self, char *key);
-uint32_t *hash_map_cu32_get_or_insert(struct hash_map_cu32 *self, char *key, uint32_t value, size_t key_size);
+uint32_t *hash_map_cu32_get_or_insert(struct hash_map_cu32 *self, char *key,
+                                      uint32_t value, size_t key_size);
 bool hash_map_cu32_contains(struct hash_map_cu32 *self, char *key);
 void hash_map_cu32_free(struct hash_map_cu32 *self);
 
@@ -80,9 +84,11 @@ struct hash_map_u32f {
 
 struct hash_map_u32f hash_map_u32f_new();
 struct hash_map_u32f hash_map_u32f_new_with_cap(size_t cap);
-void hash_map_u32f_insert(struct hash_map_u32f *self, uint32_t key, float value);
+void hash_map_u32f_insert(struct hash_map_u32f *self, uint32_t key,
+                          float value);
 float *hash_map_u32f_get(struct hash_map_u32f *self, uint32_t key);
-float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key, float value);
+float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key,
+                                   float value);
 bool hash_map_u32f_contains(struct hash_map_u32f *self, uint32_t key);
 void hash_map_u32f_free(struct hash_map_u32f *self);
 

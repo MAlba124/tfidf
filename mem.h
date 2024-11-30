@@ -1,9 +1,9 @@
 #ifndef __TFIDF_H_MEM
 #define __TFIDF_H_MEM
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <assert.h>
 
 inline void *malloc_checked(size_t size) {
   void *ptr = malloc(size);

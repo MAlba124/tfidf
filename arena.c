@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #include "arena.h"
 #include "mem.h"
@@ -13,9 +13,7 @@ struct arena arena_new(size_t element_size, size_t cap) {
   return self;
 }
 
-void arena_free(struct arena *self) {
-  free(self->ptr);
-}
+void arena_free(struct arena *self) { free(self->ptr); }
 
 void *arena_alloc(struct arena *self) {
   assert(self->idx < self->cap && "Arena is FULL");
