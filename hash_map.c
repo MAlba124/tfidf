@@ -585,12 +585,6 @@ float *hash_map_u32f_get(struct hash_map_u32f *self, uint32_t key) {
 }
 
 float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key, float value) {
-  double load_factor = (double)self->entries / (double)self->n_buckets;
-  if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_u32f_rehash(self, self->n_buckets);
-  }
-
-
   uint32_t idx = key % self->n_buckets;
   struct hash_map_bucket_u32f *bucket = &self->buckets[idx];
   struct linked_list_node_u32f *prev_node = bucket->root;
@@ -614,7 +608,23 @@ float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key, flo
 
   self->entries++;
 
-  return new_value;
+  double load_factor = (double)self->entries / (double)self->n_buckets;
+  if (load_factor > HASH_MAP_THRESHOLD) {
+    hash_map_u32f_rehash(self, self->n_buckets);
+    uint32_t idx = key % self->n_buckets;
+    struct hash_map_bucket_u32f *bucket = &self->buckets[idx];
+    struct linked_list_node_u32f *node = bucket->root;
+    while (node != NULL) {
+      if (node->key == key)
+        return &node->value;
+      prev_node = node;
+      node = node->next;
+    }
+  } else {
+    return new_value;
+  }
+
+  assert(0 && "Reached unreachable code!");
 }
 
 bool hash_map_u32f_contains(struct hash_map_u32f *self, uint32_t key) {

@@ -112,7 +112,7 @@ static inline void sort_and_print_results(struct search_result *results,
   for (size_t i = count; i > 0; i--) {
     float s = results[i - 1].score;
     if (s > 0.0)
-      printf("%2ld. | Score: %s%.0f%%\033[0m URL: %s\n", count - i + 1,
+      printf("%2ld. | Score: %s%.0f%%\033[0m Title: %s\n", count - i + 1,
              s >= 0.75   ? "\033[32m"
              : s >= 0.25 ? "\033[33m"
                          : "\033[31m",
