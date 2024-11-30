@@ -1,4 +1,3 @@
-// TODO: write more extensible tests
 // TODO: test against real life tf-idf and cosine similarity tests
 // TODO: profile to get better indicators for whats needing performance work
 
