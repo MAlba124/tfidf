@@ -37,6 +37,7 @@ uint32_t *hash_map_cu32_get_or_insert(struct hash_map_cu32 *self, char *key,
 bool hash_map_cu32_contains(struct hash_map_cu32 *self, char *key);
 void hash_map_cu32_free(struct hash_map_cu32 *self);
 
+// hash map for key:u32 and value:float
 struct hash_map_bucket_node_u32f {
   uint32_t key;
   float value;

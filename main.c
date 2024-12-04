@@ -1,7 +1,3 @@
-// TODO: use arenas for all the maps :===)))))
-// TODO: nice progress bars and stuff showing loading
-// TODO: test against real life tf-idf and cosine similarity tests
-
 #include <ctype.h>
 #include <math.h>
 #include <stdbool.h>
@@ -140,7 +136,13 @@ struct arguments parse_args(int argc, char **argv) {
       }
       args.interactive = true;
     } else if (strcmp(argv[i], "--help") == 0) {
-      printf("soon\n");
+      printf("Usage: %s -s [FILE] [OPTIONS]\n\n", argv[0]);
+      printf("Arguments:\n");
+      printf("    -s [FILE]     Input file in skvs format\n");
+      printf("    -n [AMOUNT]   How many search results to show\n");
+      printf("    -q [QUERY]    Run a single query\n\n");
+      printf("Options:\n");
+      printf("    -i            Interactive mode\n");
       exit(0);
     } else if (strcmp(argv[i], "-s") == 0) {
       if (i >= argc - 1) {
