@@ -27,7 +27,7 @@ Options:
 `tfidf` uses a custom data format (called `skvs`) for loading corpuses. It consist of pairs where the layout looks like this:
 
 | What? | 1st element length (X )| 1st element | 2nd element length (Y) | 2nd element |
----------------------------------------------------------------------
+|-------|------------------------|-------------|------------------------|-------------|
 | Size (bytes) | 4 | X | 4 | Y |
 
 All lengths are stored in network order.
