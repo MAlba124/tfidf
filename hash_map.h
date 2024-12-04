@@ -10,33 +10,6 @@
 #define HASH_MAP_DEFAULT_BUCKET_COUNT 512
 #define HASH_MAP_THRESHOLD 0.75
 
-// Hash map for key:char* and value:float
-struct linked_list_node_cf {
-  char *key;
-  float value;
-  struct linked_list_node_cf *next;
-};
-
-struct hash_map_bucket_cf {
-  struct linked_list_node_cf *root;
-};
-
-struct hash_map_cf {
-  struct hash_map_bucket_cf *buckets;
-  size_t entries;
-  size_t n_buckets;
-};
-
-struct hash_map_cf hash_map_cf_new();
-struct hash_map_cf hash_map_cf_new_with_cap(size_t cap);
-void hash_map_cf_insert(struct hash_map_cf *self, char *key, float value,
-                        size_t key_size);
-float *hash_map_cf_get(struct hash_map_cf *self, char *key);
-float *hash_map_cf_get_or_insert(struct hash_map_cf *self, char *key,
-                                 float value, size_t key_size);
-bool hash_map_cf_contains(struct hash_map_cf *self, char *key);
-void hash_map_cf_free(struct hash_map_cf *self);
-
 // hash map for key:char* and value:u32
 struct linked_list_node_cu32 {
   char *key;
