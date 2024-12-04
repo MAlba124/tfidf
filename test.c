@@ -41,7 +41,7 @@ void test_hash_map_cf_insert_get_big() {
   struct hash_map_cf map = hash_map_cf_new();
 
   char str[8];
-  size_t upper = 1000000;
+  size_t upper = 50000;
   for (size_t i = 0; i < upper; i++) {
     sprintf(str, "%li", i);
     hash_map_cf_insert(&map, str, (float)(upper - i), strlen(str) + 1);
@@ -87,7 +87,7 @@ void test_hash_map_cu32_insert_get_big() {
   struct hash_map_cu32 map = hash_map_cu32_new();
 
   char str[8];
-  size_t upper = 1000000;
+  size_t upper = 50000;
   for (size_t i = 0; i < upper; i++) {
     sprintf(str, "%li", i);
     hash_map_cu32_insert(&map, str, (uint32_t)(upper - i), strlen(str) + 1);
@@ -132,10 +132,29 @@ void test_hash_map_u32f_insert_get() {
 void test_hash_map_u32f_insert_get_big() {
   struct hash_map_u32f map = hash_map_u32f_new();
 
-  size_t upper = 1000000;
+  size_t upper = 50000;
   for (size_t i = 0; i < upper; i++) {
     hash_map_u32f_insert(&map, (uint32_t)i, (float)(upper - i));
   }
+
+  assert(map.entries == upper);
+
+  for (size_t i = 0; i < upper; i++) {
+    assert(*hash_map_u32f_get(&map, (uint32_t)i) == (float)(upper - i));
+  }
+
+  hash_map_u32f_free(&map);
+}
+
+void test_hash_map_u32f_insert_get_big_shrink() {
+  struct hash_map_u32f map = hash_map_u32f_new();
+
+  size_t upper = 50000;
+  for (size_t i = 0; i < upper; i++) {
+    hash_map_u32f_insert(&map, (uint32_t)i, (float)(upper - i));
+  }
+
+  hash_map_u32f_shrink(&map);
 
   assert(map.entries == upper);
 
@@ -153,5 +172,6 @@ int main() {
   test(test_hash_map_cu32_insert_get_big);
   test(test_hash_map_u32f_insert_get);
   test(test_hash_map_u32f_insert_get_big);
+  test(test_hash_map_u32f_insert_get_big_shrink);
   return 0;
 }

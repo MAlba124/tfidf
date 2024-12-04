@@ -1,4 +1,5 @@
 // TODO: use arenas for all the maps :===)))))
+// TODO: nice progress bars and stuff showing loading
 // TODO: test against real life tf-idf and cosine similarity tests
 
 #include <ctype.h>
@@ -87,6 +88,8 @@ create_tf_map(struct tokenizer *tokizer, struct hash_map_u32f *idf, char *src) {
       nod = nod->next;
     }
   }
+
+  hash_map_u32f_shrink(&corpus_map);
 
   return corpus_map;
 }
@@ -317,11 +320,6 @@ int main(int argc, char **argv) {
     if (!skvs_pair_ok(&pair))
       break;
 
-    // TODO: Might want to shrink the maps arena. This involves realloc()ing so
-    // only required memory is used + calculating the offsets for the node
-    // addresses (should be a simple offset = old_ptr - new_ptr, then update the
-    // *nodes and *next)
-
     array_list_push(&corpus,
                     (struct array_list_pair){
                         .location = pair.key,
@@ -344,7 +342,8 @@ int main(int argc, char **argv) {
   skvs_reader_free(&corpus_reader);
   array_list_shrink_to_fit(&corpus);
 
-  // Calculate idf
+  // Calculate idf with the following formula:
+  // idf(t, D) = log(N / |{d: d \in D and t \in d})
   for (size_t i = 0; i < idf.n_buckets; i++) {
     struct hash_map_bucket_node_u32f *node = idf.buckets[i].root;
     while (node) {

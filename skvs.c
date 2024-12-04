@@ -12,6 +12,7 @@ struct skvs_reader skvs_reader_new(char *path) {
 
 void skvs_reader_free(struct skvs_reader *self) { fclose(self->file); }
 
+// TODO: use two buffers for reading to reduce calls to malloc
 void skvs_reader_next_pair(struct skvs_reader *self, struct skvs_pair *pair,
                            bool null_term) {
   pair->key_len = 0;

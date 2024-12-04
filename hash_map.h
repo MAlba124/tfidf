@@ -91,5 +91,6 @@ float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key,
                                    float value);
 bool hash_map_u32f_contains(struct hash_map_u32f *self, uint32_t key);
 void hash_map_u32f_free(struct hash_map_u32f *self);
+void hash_map_u32f_shrink(struct hash_map_u32f *self);
 
 #endif // __TFIDF_H_MAP

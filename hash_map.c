@@ -504,12 +504,12 @@ static inline struct hash_map_bucket_u32f *new_buckets_u32f(size_t n) {
 }
 
 static inline void hash_map_u32f_rehash(struct hash_map_u32f *self,
-                                        size_t increase) {
+                                        size_t new) {
   struct hash_map_bucket_u32f *old = self->buckets;
   size_t old_n_buckets = self->n_buckets;
   struct arena old_a = self->a;
-  self->buckets = new_buckets_u32f(self->n_buckets + increase);
-  self->n_buckets += increase;
+  self->buckets = new_buckets_u32f(new);
+  self->n_buckets = new;
   self->a =
       arena_new(sizeof(struct hash_map_bucket_node_u32f),
                 1 + (size_t)ceilf((float)self->n_buckets * HASH_MAP_THRESHOLD));
@@ -525,7 +525,6 @@ static inline void hash_map_u32f_rehash(struct hash_map_u32f *self,
 
   arena_free(&old_a);
   free(old);
-  /* free_buckets_u32f(old, old_n_buckets); */
 }
 
 struct hash_map_u32f hash_map_u32f_new_with_cap(size_t cap) {
@@ -558,7 +557,7 @@ void hash_map_u32f_insert(struct hash_map_u32f *self, uint32_t key,
 
     double load_factor = (double)self->entries / (double)self->n_buckets;
     if (load_factor > HASH_MAP_THRESHOLD) {
-      hash_map_u32f_rehash(self, self->n_buckets);
+      hash_map_u32f_rehash(self, self->n_buckets * 2);
     }
     return;
   }
@@ -575,7 +574,7 @@ void hash_map_u32f_insert(struct hash_map_u32f *self, uint32_t key,
 
       double load_factor = (double)self->entries / (double)self->n_buckets;
       if (load_factor > HASH_MAP_THRESHOLD) {
-        hash_map_u32f_rehash(self, self->n_buckets);
+        hash_map_u32f_rehash(self, self->n_buckets * 2);
       }
       break;
     }
@@ -627,7 +626,7 @@ float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key,
 
   double load_factor = (double)self->entries / (double)self->n_buckets;
   if (load_factor > HASH_MAP_THRESHOLD) {
-    hash_map_u32f_rehash(self, self->n_buckets);
+    hash_map_u32f_rehash(self, self->n_buckets * 2);
     uint32_t idx = key % self->n_buckets;
     struct hash_map_bucket_u32f *bucket = &self->buckets[idx];
     struct hash_map_bucket_node_u32f *node = bucket->root;
@@ -644,12 +643,67 @@ float *hash_map_u32f_get_or_insert(struct hash_map_u32f *self, uint32_t key,
   assert(0 && "Reached unreachable code!");
 }
 
+void hash_map_u32f_shrink(struct hash_map_u32f *self) {
+  if (self->entries == 0) {
+    self->n_buckets = 0;
+    arena_free(&self->a);
+    free(self->buckets);
+    self->buckets = NULL;
+    return;
+  }
+
+  double load_factor = (double)self->entries / (double)self->n_buckets;
+  if (load_factor < HASH_MAP_THRESHOLD) {
+    size_t new = self->entries + 1 + (size_t)((float)self->entries * 1.0 - HASH_MAP_THRESHOLD);
+    struct hash_map_bucket_u32f *old = self->buckets;
+    size_t old_n_buckets = self->n_buckets;
+    struct arena old_a = self->a;
+    self->buckets = new_buckets_u32f(new);
+    self->n_buckets = new;
+    self->a = arena_new(sizeof(struct hash_map_bucket_node_u32f), self->entries);
+    self->entries = 0;
+
+    for (size_t i = 0; i < old_n_buckets; i++) {
+        struct hash_map_bucket_node_u32f *node = old[i].root;
+        while (node != NULL) {
+        hash_map_u32f_insert(self, node->key, node->value);
+        node = node->next;
+        }
+    }
+
+    arena_free(&old_a);
+    free(old);
+    return;
+  }
+
+  char *old_ptr = self->a.ptr;
+  arena_shrink(&self->a);
+  for (size_t i = 0; i < self->n_buckets; i++) {
+    if (self->buckets[i].root == NULL)
+      continue;
+    self->buckets[i].root =
+        (struct hash_map_bucket_node_u32f *)((intptr_t)self->buckets[i].root -
+                                             (intptr_t)old_ptr +
+                                             (intptr_t)self->a.ptr);
+    struct hash_map_bucket_node_u32f *node = self->buckets[i].root;
+    while (node != NULL) {
+      if (node->next != NULL) {
+        node->next =
+            (struct hash_map_bucket_node_u32f *)((intptr_t)node->next -
+                                                 (intptr_t)old_ptr +
+                                                 (intptr_t)self->a.ptr);
+      }
+      node = node->next;
+    }
+  }
+}
+
 bool hash_map_u32f_contains(struct hash_map_u32f *self, uint32_t key) {
   return hash_map_u32f_get(self, key) != NULL;
 }
 
 void hash_map_u32f_free(struct hash_map_u32f *self) {
   arena_free(&self->a);
-  free(self->buckets);
-  /* free_buckets_u32f(self->buckets, self->n_buckets); */
+  if (self->buckets)
+    free(self->buckets);
 }
